@@ -2,7 +2,7 @@ import os
 import json
 import random
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 random.seed(10)
 
 from parse_args import parse_args
@@ -44,12 +44,12 @@ def main():
 
     start_episode = training_args.resume_episode if training_args.resume else 0
     for i in range(start_episode + 1, start_episode + training_args.n_episodes + 1):
-        v = mcts.search(mcts.init_state)
+        v = mcts.search(mcts.init_state, False)
         n_distinct_blocks = -v * original_num_blocks
         print(f"Episode {i} return value: {n_distinct_blocks}\n")
         if v > max_v:
             max_v = v
-            with open(f"{training_args.output_dir}/best_value.txt", "a") as f:
+            with open(f"{training_args.output_dir}/best_value_2.txt", "a") as f:
                 f.write(f"Episode {i}: {n_distinct_blocks}\n")
         if i % training_args.save_every == 0:
             save_i = i

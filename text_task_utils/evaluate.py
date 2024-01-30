@@ -357,7 +357,7 @@ def evaluate(
             # We average the logits over each sample for using demonstrations.
             predictions = p.predictions
             num_logits = predictions.shape[-1]
-            print(f"predictions shape: {predictions.shape}")
+            # print(f"predictions shape: {predictions.shape}")
             logits = predictions.reshape([eval_dataset.num_sample, -1, num_logits])
             logits = logits.mean(axis=0)
 
@@ -384,4 +384,6 @@ def evaluate(
         eval_dataset=eval_dataset,
         compute_metrics=build_compute_metrics_fn(data_args.task_name),
     )
-    return trainer.evaluate()["eval_acc"]
+    metrics = trainer.evaluate()
+    print("*" * 20)
+    return metrics["eval_acc"]

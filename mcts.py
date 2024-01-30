@@ -68,7 +68,7 @@ class MCTS:
             model_range=model_range,
         )
 
-    def search(self, state: State):
+    def search(self, state: State, expanded: bool = False):
         """
         This function performs one iteration/epsisode of MCTS. It is recursively
         called till a leaf node is found. The action chosen at each node is one
@@ -79,6 +79,7 @@ class MCTS:
         """
         s = str(state)
 
+        # Check if the current state is the end of the game
         if state.block_2be_replaced >= 0:
             if s not in self.Es:
                 self.Es[s] = state.get_game_end(
@@ -93,8 +94,13 @@ class MCTS:
                 # terminal node
                 return self.Es[s]
 
+        # Selection, Expansion, Simulation, Backpropagation
+        first_expanded = False
         legal_actions = state.legal_actions(self.budgets)
-        if s in self.Ns:
+        if expanded:
+            # simulation
+            a = choice(legal_actions)
+        elif s in self.Ns:
             # Selection: pick the action with the highest upper confidence bound
             cur_best = -float("inf")
             best_act = -1
@@ -114,28 +120,31 @@ class MCTS:
         else:
             # Expansion:
             a = choice(legal_actions)
+            expanded = True
+            first_expanded = True
 
         next_s = state.next_state(a, self.budgets)
 
         # Recursively search to get the return value
-        v = self.search(next_s)
+        v = self.search(next_s, expanded)
 
-        # Update statistics based on the return value
-        sa = f"{s}_{a}"
-        # The following is according to alpha-zero-general implementation:
-        # https://github.com/suragnair/alpha-zero-general/blob/master/MCTS.py
-        # self.Qsa[sa] = (self.Nsa.get(sa, 0) * self.Qsa.get(sa, 0) + v) / (
-        #     self.Nsa.get(sa, 0) + 1
-        # )
+        # Backprogation: Update statistics based on the return value
+        if first_expanded or not expanded:
+            sa = f"{s}_{a}"
+            # The following is according to alpha-zero-general implementation:
+            # https://github.com/suragnair/alpha-zero-general/blob/master/MCTS.py
+            # self.Qsa[sa] = (self.Nsa.get(sa, 0) * self.Qsa.get(sa, 0) + v) / (
+            #     self.Nsa.get(sa, 0) + 1
+            # )
 
-        # According to the classicial MCTS, reference:
-        # https://www.cs.utexas.edu/~pstone/Courses/394Rspring11/resources/mcrave.pdf.
-        self.Nsa[sa] = self.Nsa.get(sa, 0) + 1
-        self.Ns[s] = self.Ns.get(s, 0) + 1
-        if sa in self.Qsa:
-            self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]
-        else:
-            self.Qsa[sa] = v / self.Nsa[sa]
+            # According to the classicial MCTS, reference:
+            # https://www.cs.utexas.edu/~pstone/Courses/394Rspring11/resources/mcrave.pdf.
+            self.Nsa[sa] = self.Nsa.get(sa, 0) + 1
+            self.Ns[s] = self.Ns.get(s, 0) + 1
+            if sa in self.Qsa:
+                self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]
+            else:
+                self.Qsa[sa] = v / self.Nsa[sa]
         return v
 
     def save_state(self, save_i, delete_i):

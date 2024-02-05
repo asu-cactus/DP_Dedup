@@ -2,7 +2,7 @@ import os
 import json
 import random
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 random.seed(10)
 
 from parse_args import parse_args
@@ -17,16 +17,10 @@ def load_models_info(model_args) -> list[dict]:
     model_ids = model_args.model_ids.split(",")
     models_info = [models_info[idx] for idx in model_ids]
     return models_info
-    # acc_drop_thresholds = [info["acc_drop_threshold"] for info in models_info]
-    # original_accs = [info["original_acc"] for info in models_info]
-    # budgets = [info["budget"] for info in models_info]
-    # model_paths = [info["model_path"] for info in models_info]
-    # return (acc_drop_thresholds, original_accs, budgets, model_paths)
 
 
 def main():
     model_args, data_args, training_args = parse_args()
-    # acc_drop_thresholds, original_accs, budgets, model_paths = load_model_info()
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
     models_storage = get_blocks(model_paths=model_paths)

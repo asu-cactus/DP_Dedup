@@ -266,9 +266,11 @@ def evaluate(
 
     # Create config
     config = AutoConfig.from_pretrained(
-        model_args.config_name
-        if model_args.config_name
-        else model_args.model_name_or_path,
+        (
+            model_args.config_name
+            if model_args.config_name
+            else model_args.model_name_or_path
+        ),
         num_labels=num_labels,
         finetuning_task=data_args.task_name,
         cache_dir=model_args.cache_dir,
@@ -293,9 +295,11 @@ def evaluate(
 
     # Create tokenizer
     tokenizer = AutoTokenizer.from_pretrained(
-        model_args.tokenizer_name
-        if model_args.tokenizer_name
-        else model_args.model_name_or_path,
+        (
+            model_args.tokenizer_name
+            if model_args.tokenizer_name
+            else model_args.model_name_or_path
+        ),
         additional_special_tokens=special_tokens,
         cache_dir=model_args.cache_dir,
         use_fast=False,
@@ -332,9 +336,6 @@ def evaluate(
             model, new_num_types=10, random_segment=model_args.random_segment
         )
 
-    # Reconstruct the parameters using the model constitution
-    reconstruct_weight(model_storage, model, model_id, model_constitution)
-
     # Pass dataset and argument information to the model
     if data_args.prompt:
         model.label_word_list = torch.tensor(eval_dataset.label_word_list).long().cuda()
@@ -346,9 +347,12 @@ def evaluate(
         # lower / upper bounds
         model.lb, model.ub = bound_mapping[data_args.task_name]
         print(f" | Regression lb: {model.lb}, ub: {model.ub}")
-    model.model_args = model_args
-    model.data_args = data_args
-    model.tokenizer = tokenizer
+    # model.model_args = model_args
+    # model.data_args = data_args
+    # model.tokenizer = tokenizer
+
+    # Reconstruct the parameters using the model constitution
+    reconstruct_weight(model_storage, model, model_id, model_constitution)
 
     # Build metric
     def build_compute_metrics_fn(task_name: str) -> Callable[[EvalPrediction], Dict]:

@@ -286,7 +286,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Disable tqdm"},
     )
     per_device_eval_batch_size: int = field(
-        default=8,
+        default=128,
         metadata={"help": "Evaluation batch size per device"},
     )
     output_dir: str = field(

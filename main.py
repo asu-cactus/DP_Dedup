@@ -6,20 +6,10 @@ from pathlib import Path
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 random.seed(10)
 
-from parse_args import parse_args
+from utils.parse_args import parse_args
 from mcts import MCTS
-from blocker import get_blocks
-
-
-def load_models_info(model_args) -> list[dict]:
-    with open("models/model_info.json", "r") as f:
-        models_info = json.load(f)
-    if not model_args.model_ids:
-        models_info = list(models_info.values())
-    else:
-        model_ids = model_args.model_ids.split(",")
-        models_info = [models_info[idx] for idx in model_ids]
-    return models_info
+from utils.blocker import get_blocks
+from utils import load_models_info
 
 
 def main():

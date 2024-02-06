@@ -7,18 +7,10 @@ from collections import defaultdict
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 
-from parse_args import parse_args
-from blocker import get_blocks
+from utils.parse_args import parse_args
+from utils.blocker import get_blocks
+from utils import load_models_info
 from text_task_utils.evaluate import evaluate
-
-
-def load_models_info(model_args) -> list[dict]:
-    with open("models/model_info.json", "r") as f:
-        models_info = json.load(f)
-
-    model_ids = model_args.model_ids.split(",")
-    models_info = [models_info[idx] for idx in model_ids]
-    return models_info
 
 
 def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=False):

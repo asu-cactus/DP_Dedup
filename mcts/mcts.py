@@ -4,7 +4,7 @@ import os
 from random import choice
 import pdb
 
-from env import State
+from mcts.env import State
 
 EPS = 1e-8
 

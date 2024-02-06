@@ -1,15 +1,16 @@
 import os
-import json
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import random
 from pathlib import Path
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-random.seed(10)
-
 from utils.parse_args import parse_args
-from mcts import MCTS
 from utils.blocker import get_blocks
 from utils import load_models_info
+from mcts.mcts import MCTS
+from mcts.heuristics import get_heuristics_dict
+
+random.seed(10)
 
 
 def main():
@@ -46,4 +47,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    get_heuristics_dict()

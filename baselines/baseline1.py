@@ -1,7 +1,7 @@
 import pdb
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 
@@ -119,18 +119,18 @@ def deduplicate_blocks(
         )
 
         # Replace the current block with the most similar block
-        model_constitution[i - model_range_start] = np.argmin(diff)
+        temp_constitution = model_constitution.copy()
+        temp_constitution[i - model_range_start] = np.argmin(diff)
 
         acc = evaluate(
             model_storage,
             model_id,
-            model_constitution,
+            temp_constitution,
             data_args,
             model_args,
             training_args,
         )
-        if acc < acc_threshold:
-            model_constitution[i - model_range_start] = i
-        else:
+        if acc >= acc_threshold:
+            model_constitution = temp_constitution
             n_change += 1
     return n_change

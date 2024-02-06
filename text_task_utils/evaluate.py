@@ -29,8 +29,8 @@ from text_task_utils.processors import (
     bound_mapping,
 )
 
-from blocker import reconstruct_weight
-from parse_args import (
+from utils.blocker import reconstruct_weight
+from utils.parse_args import (
     ModelArguments,
     DynamicDataTrainingArguments,
     DynamicTrainingArguments,

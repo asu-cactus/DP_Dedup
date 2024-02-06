@@ -347,9 +347,9 @@ def evaluate(
         # lower / upper bounds
         model.lb, model.ub = bound_mapping[data_args.task_name]
         print(f" | Regression lb: {model.lb}, ub: {model.ub}")
-    # model.model_args = model_args
-    # model.data_args = data_args
-    # model.tokenizer = tokenizer
+    model.model_args = model_args
+    model.data_args = data_args
+    model.tokenizer = tokenizer
 
     # Reconstruct the parameters using the model constitution
     reconstruct_weight(model_storage, model, model_id, model_constitution)

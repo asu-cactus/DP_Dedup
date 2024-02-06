@@ -1,7 +1,7 @@
 baseline/
 block_storage/
 dataset/
-outputs/
+output*/
 models/
 __pycache__/
 

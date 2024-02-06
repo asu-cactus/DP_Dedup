@@ -1,6 +1,8 @@
 import json
 import pdb
 import os
+from copy import copy
+from collections import defaultdict
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
@@ -37,16 +39,18 @@ def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=False):
     model1_range_end = model_storage["model_range"][2]
 
     dedup_indices = set()
+    dedup_dict = defaultdict(list)
 
     # candidate_blocks = model_storage["blocks"][model0_range_start:model0_range_end]
     candidate_range = model0_range_end
-    dedup_indices = deduplicate_blocks(
+    dedup_indices, dedup_dict = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         acc_threshold,
         dedup_indices,
+        dedup_dict,
         0,
         model0_range_start,
         model0_range_end,
@@ -56,13 +60,14 @@ def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=False):
 
     # candidate_blocks = model_storage["blocks"]
     candidate_range = model1_range_end
-    dedup_indices = deduplicate_blocks(
+    dedup_indices, _ = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         acc_threshold,
         dedup_indices,
+        dedup_dict,
         1,
         model1_range_start,
         model1_range_end,
@@ -80,6 +85,7 @@ def deduplicate_blocks(
     model_storage,
     acc_threshold,
     dedup_indices,
+    dedup_dict,
     model_id,
     model_range_start,
     model_range_end,
@@ -117,19 +123,31 @@ def deduplicate_blocks(
         for j in ind:
             # j += model_range_start
             if j != i and j not in dedup_indices:
-                model_constitution[i - model_range_start] = j
+                temp_constitution = copy(model_constitution)
+                # Replace the current block with the most similar block
+                temp_constitution[i - model_range_start] = j
+                # If the current block was used to replace other blocks,
+                # replace those blocks with the most similar block
+                if i in dedup_dict:
+                    for k in dedup_dict[i]:
+                        idx = k - model_range_start
+                        if idx >= 0 and idx < len(temp_constitution):
+                            temp_constitution[idx] = j
+
                 acc = evaluate(
                     model_storage,
                     model_id,
-                    model_constitution,
+                    temp_constitution,
                     data_args,
                     model_args,
                     training_args,
                 )
-                if acc < acc_threshold:
-                    # Revert the change
-                    model_constitution[i - model_range_start] = i
-                else:
+                if acc >= acc_threshold:
+                    model_constitution = temp_constitution
                     dedup_indices.add(i)
+                    dedup_dict[j].append(i)
+                    if i in dedup_dict:
+                        dedup_dict[j].extend(dedup_dict[i])
+                        del dedup_dict[i]
                 break
-    return dedup_indices
+    return dedup_indices, dedup_dict

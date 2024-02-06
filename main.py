@@ -1,6 +1,7 @@
 import os
 import json
 import random
+from pathlib import Path
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 random.seed(10)
@@ -13,14 +14,17 @@ from blocker import get_blocks
 def load_models_info(model_args) -> list[dict]:
     with open("models/model_info.json", "r") as f:
         models_info = json.load(f)
-
-    model_ids = model_args.model_ids.split(",")
-    models_info = [models_info[idx] for idx in model_ids]
+    if not model_args.model_ids:
+        models_info = list(models_info.values())
+    else:
+        model_ids = model_args.model_ids.split(",")
+        models_info = [models_info[idx] for idx in model_ids]
     return models_info
 
 
 def main():
     model_args, data_args, training_args = parse_args()
+    Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
     models_storage = get_blocks(model_paths=model_paths)
@@ -43,7 +47,7 @@ def main():
         print(f"Episode {i} return value: {n_distinct_blocks}\n")
         if v > max_v:
             max_v = v
-            with open(f"{training_args.output_dir}/best_value_2.txt", "a") as f:
+            with open(f"{training_args.output_dir}/best_value.txt", "a") as f:
                 f.write(f"Episode {i}: {n_distinct_blocks}\n")
         if i % training_args.save_every == 0:
             save_i = i

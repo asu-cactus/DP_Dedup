@@ -16,10 +16,11 @@ class ModelArguments:
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
 
-    model_ids: str = field(
+    model_ids: Optional[str] = field(
+        default="",
         metadata={
             "help": "Model ID to identify the model. Should be numbers separated by comma, e.g., 0,2,3"
-        }
+        },
     )
     model_name_or_path: Optional[str] = field(
         default="../fast-differential-privacy/examples/outputs/base-sst-2-eps8/",
@@ -286,7 +287,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Disable tqdm"},
     )
     per_device_eval_batch_size: int = field(
-        default=128,
+        default=16,
         metadata={"help": "Evaluation batch size per device"},
     )
     output_dir: str = field(

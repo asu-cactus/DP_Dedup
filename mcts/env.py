@@ -114,7 +114,9 @@ class State:
             # Get legal block actions from legal model actions
             legal_actions = []
             for model_id in legal_model_actions:
-                legal_actions.extend(legal_actions_2[self.block_2b_replaced][model_id])
+                legal_actions.extend(
+                    legal_actions_2[self.block_2b_replaced].get(model_id, [])
+                )
 
             # legal_actions = chain.from_iterable(
             #     (

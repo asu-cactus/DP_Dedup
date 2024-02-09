@@ -262,26 +262,6 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
 
 @dataclass
 class DynamicTrainingArguments(TrainingArguments):
-    resume: bool = field(
-        default=False,
-        metadata={"help": "Whether to resume runing MCTS"},
-    )
-    resume_episode: int = field(
-        default=0,
-        metadata={"help": "Resume from episode n"},
-    )
-    n_episodes: int = field(
-        default=10000,
-        metadata={"help": "Number of episodes for MCTS"},
-    )
-    save_every: int = field(
-        default=100,
-        metadata={"help": "Save MCTS results every n episodes"},
-    )
-    keep_n: int = field(
-        default=10,
-        metadata={"help": "Keep n saved MCTS results"},
-    )
     disable_tqdm: bool = field(
         default=True,
         metadata={"help": "Disable tqdm"},
@@ -294,6 +274,45 @@ class DynamicTrainingArguments(TrainingArguments):
         default="outputs",
         metadata={"help": "Output directory"},
     )
+    n_episodes: int = field(
+        default=10000,
+        metadata={"help": "Number of episodes for MCTS"},
+    )
+    save_every: int = field(
+        default=100,
+        metadata={"help": "Save MCTS results every n episodes"},
+    )
+    keep_n: int = field(
+        default=5,
+        metadata={"help": "Keep n saved MCTS results"},
+    )
+    # For Heuristic MC-RAVE
+    mcts_mode: str = field(
+        default="heuristic_mc_rave",
+        metadata={"help": "MCTS mode, choice: heuristic_mc_rave, uct_mcts"},
+    )
+    top_k: int = field(
+        default=5,
+        metadata={"help": "Top-k actions to consider in heuristic test"},
+    )
+    equivalence_param: int = field(
+        default=1000,
+        metadata={"help": "Equivalence parameter k for Hand-select schedule"},
+    )
+    cprod: float = field(
+        default=0.1,
+        metadata={"help": "C-prod for UCT for Heuristic MC-RAVE"},
+    )
+    # For resume search
+    resume: bool = field(
+        default=False,
+        metadata={"help": "Whether to resume runing MCTS"},
+    )
+    resume_episode: int = field(
+        default=0,
+        metadata={"help": "Resume from episode n"},
+    )
+
     # # For ensemble
     # array_id: int = field(
     #     default=-1,
@@ -353,4 +372,8 @@ def parse_args():
             DynamicTrainingArguments,
         )
     )
-    return parser.parse_args_into_dataclasses()
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    print(f"model_args:\n{model_args}")
+    print(f"data_args:\n{data_args}")
+    print(f"training_args:\n{training_args}")
+    return model_args, data_args, training_args

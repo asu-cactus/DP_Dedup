@@ -1,48 +1,12 @@
 import pdb
-import json
 import pickle
-from copy import copy
+from bisect import bisect
+from collections import defaultdict
+import os
 
 import numpy as np
 
-from utils.parse_args import parse_args
-from utils.blocker import get_blocks
-from utils import load_models_info
 from text_task_utils.evaluate import evaluate
-
-
-def get_heuristics_dict():
-    """
-    This is a hard-coded version of the baseline2 method:
-    Self deduplicate lower budget model, and used as a reference,
-    and then deduplcaite higher budget model (also allowing for self deduplication).
-    """
-
-    model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args)
-    model_paths = [info["model_path"] for info in models_info]
-    model_storage = get_blocks(model_paths=model_paths)
-
-    heuristics_dict = {}
-    last_legal_model = find_last_legal_model(models_info)
-
-    for model_id, last_model_id in last_legal_model.items():
-        acc_dict = get_acc_after_dedup(
-            model_args,
-            data_args,
-            training_args,
-            model_storage,
-            model_id,
-            last_model_id,
-        )
-        heuristics_dict.update(acc_dict)
-    # Save the heuristics_dict with pickle
-    with open("heuristics_dict.pkl", "wb") as f:
-        pickle.dump(heuristics_dict, f)
-    # Save the heuristics_dict with json
-    with open("heuristics_dict.json", "w") as f:
-        json.dump(heuristics_dict, f)
-    return heuristics_dict
 
 
 def find_last_legal_model(models_info):
@@ -71,27 +35,28 @@ def get_acc_after_dedup(
     model_args,
     data_args,
     training_args,
-    model_storage,
+    models_storage,
     model_id,
     last_model_id,
-    top_k=5,
 ):
     """
     Get the accuracy after deduplication.
     The result is a dictionary, where the key is the block index, and the value is another dictionary,
     where the key is the block index of the candidate block, and the value is the accuracy after deduplication.
     """
-    models_range = model_storage["model_range"]
-    blocks = model_storage["blocks"]
+    models_range = models_storage["model_range"]
+    blocks = models_storage["blocks"]
+    top_k = training_args.top_k
 
     model_range_start = models_range[model_id]
     model_range_end = models_range[model_id + 1]
     model_constitution = list(range(model_range_start, model_range_end))
 
-    result_dict = {}
+    heuristics_dict = {}
     for i in range(model_range_start, model_range_end):
+        action_to_acc_dict = {}
         block_2b_replaced = blocks[i]
-        for target_model_id in range(last_model_id):
+        for target_model_id in range(last_model_id + 1):
             target_model_range_start = models_range[target_model_id]
             target_model_range_end = models_range[target_model_id + 1]
             candidate_blocks = blocks[target_model_range_start:target_model_range_end]
@@ -104,14 +69,12 @@ def get_acc_after_dedup(
             ind = ind[1:] if model_id == target_model_id else ind[:top_k]
             ind = [i + target_model_range_start for i in ind]
 
-            action_to_acc_dict = {}
             for j in ind:
-
-                temp_constitution = copy(model_constitution)
+                temp_constitution = model_constitution.copy()
                 temp_constitution[i - model_range_start] = j
 
                 acc = evaluate(
-                    model_storage,
+                    models_storage,
                     model_id,
                     temp_constitution,
                     data_args,
@@ -120,5 +83,105 @@ def get_acc_after_dedup(
                 )
                 action_to_acc_dict[j] = acc
 
-            result_dict[i] = action_to_acc_dict
-    return result_dict
+        heuristics_dict[i] = action_to_acc_dict
+    return heuristics_dict
+
+
+def get_heuristics_dict(
+    model_args,
+    data_args,
+    training_args,
+    models_info,
+    models_storage,
+) -> dict[int, dict[int, float]]:
+    """
+    This is a hard-coded version of the baseline2 method:
+    Self deduplicate lower budget model, and used as a reference,
+    and then deduplcaite higher budget model (also allowing for self deduplication).
+    """
+
+    # Load heursitics_dict from pickle if it exists
+    if os.path.exists("heuristics_dict.pkl"):
+        with open("heuristics_dict.pkl", "rb") as f:
+            heuristics_dict = pickle.load(f)
+        print("Loaded heuristics_dict from pickle")
+        return heuristics_dict
+
+    heuristics_dict = {}
+    last_legal_model = find_last_legal_model(models_info)
+
+    for model_id, last_model_id in last_legal_model.items():
+        acc_dict = get_acc_after_dedup(
+            model_args,
+            data_args,
+            training_args,
+            models_storage,
+            model_id,
+            last_model_id,
+        )
+        heuristics_dict.update(acc_dict)
+    # Save the heuristics_dict with pickle
+    with open("heuristics_dict.pkl", "wb") as f:
+        pickle.dump(heuristics_dict, f)
+    print("Saved heuristics_dict with pickle")
+    return heuristics_dict
+
+
+def get_heuristic_info(
+    model_args,
+    data_args,
+    training_args,
+    models_info,
+    models_storage,
+):
+    """Get the heuristic information for the MCTS."""
+    heuristics_dict = get_heuristics_dict(
+        model_args, data_args, training_args, models_info, models_storage
+    )
+    acc_thresholds = [
+        info["original_acc"] - info["acc_drop_threshold"] for info in models_info
+    ]
+    H1a_to_C1a = {}  # type: dict[int, int]
+    H2aa_to_C2aa = defaultdict(dict)  # type: dict[int, dict[int, int]]
+
+    legal_actions_2 = {}
+
+    for block_2b_replaced, value in heuristics_dict.items():
+        n_can_be_placed = 0
+        for i, (block_to_replace, acc) in enumerate(value.items()):
+            model_id = i // training_args.top_k
+            if acc >= acc_thresholds[model_id]:
+                n_can_be_placed += 1
+
+        if n_can_be_placed > 0:
+            # Custom heuristic function for H1a_to_C1a
+            H1a_to_C1a[block_2b_replaced] = int(50 * n_can_be_placed / len(value))
+            # Custom heuristic function for H2aa_to_C2aa
+            for i, (block_to_replace, acc) in enumerate(value.items()):
+                model_id = i // training_args.top_k
+                if acc >= acc_thresholds[model_id]:
+                    H2aa_to_C2aa[block_2b_replaced][block_to_replace] = int(
+                        1000
+                        * len(value)
+                        / n_can_be_placed
+                        * (acc - acc_thresholds[model_id])
+                    )
+                    if block_2b_replaced not in legal_actions_2:
+                        legal_actions_2[block_2b_replaced] = defaultdict(list)
+                    legal_actions_2[block_2b_replaced][model_id].append(
+                        block_to_replace
+                    )
+
+    H = len(H1a_to_C1a)
+
+    # Make some conversions
+    H2aa_to_C2aa = dict(H2aa_to_C2aa)
+    legal_actions_1 = list(H1a_to_C1a.keys())
+    legal_actions_2 = {k: dict(v) for k, v in legal_actions_2.items()}
+
+    print(f"H1a_to_C1a:\n{H1a_to_C1a}")
+    print(f"H2aa_to_C2aa:\n{H2aa_to_C2aa}")
+    print(f"H: {H}")
+    print(f"legal_actions_1:\n{legal_actions_1}")
+    print(f"legal_actions_2:\n{legal_actions_2}")
+    return H, H1a_to_C1a, H2aa_to_C2aa, legal_actions_1, legal_actions_2

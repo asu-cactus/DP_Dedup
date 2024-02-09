@@ -4,15 +4,14 @@ import os
 from random import choice
 import pdb
 
-from mcts.env import State, reward_function
-from mcts.heuristics import get_heuristic_info
+from mcts.env import State
 
 EPS = 1e-8
 
 
 class MCTS:
     """
-    MCTS with action pruning.
+    This class handles the MCTS tree.
     """
 
     def __init__(
@@ -22,6 +21,7 @@ class MCTS:
         training_args,
         models_info: list[dict],
         models_storage,
+        cpuct: float = 2.0,
     ):
         self.model_args = model_args
         self.data_args = data_args
@@ -29,23 +29,9 @@ class MCTS:
         self.models_info = models_info
         self.budgets = [info["budget"] for info in models_info]
         self.models_storage = models_storage
-
-        # Get pruned actions
-        (
-            _,
-            _,
-            _,
-            self.legal_actions_1,
-            self.legal_actions_2,
-        ) = get_heuristic_info(
-            model_args,
-            data_args,
-            training_args,
-            models_info,
-            models_storage,
-        )
-        # Initialize the root node of the MCTS tree
         self.init_state = self._get_init_state(models_storage, self.budgets)
+
+        self.cpuct = cpuct
 
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
@@ -73,18 +59,16 @@ class MCTS:
         model_range = models_storage["model_range"]
         n_unique_blocks = model_range[-1]
         models_constitution = list(range(n_unique_blocks))
-        # An action will be removed from legal_actions_1_copy after a block is replaced
-        self.legal_actions_1_copy = self.legal_actions_1.copy()
 
         return State(
             models_constitution,
             n_unique_blocks,
             budgets,
-            block_2b_replaced=-1,
+            block_2be_replaced=-1,
             model_range=model_range,
         )
 
-    def search(self, state: State, outside_tree: bool = False):
+    def search(self, state: State, expanded: bool = False):
         """
         This function performs one iteration/epsisode of MCTS. It is recursively
         called till a leaf node is found. The action chosen at each node is one
@@ -96,10 +80,7 @@ class MCTS:
         s = str(state)
 
         # Check if the current state is the end of the game
-        if len(self.legal_actions_1_copy) == 0:
-            # If there is no block to be replaced, then the game ends
-            return reward_function(state)
-        if state.block_2b_replaced >= 0:
+        if state.block_2be_replaced >= 0:
             if s not in self.Es:
                 self.Es[s] = state.get_game_end(
                     self.models_storage,
@@ -115,10 +96,8 @@ class MCTS:
 
         # Selection, Expansion, Simulation, Backpropagation
         first_expanded = False
-        legal_actions = state.legal_actions(
-            self.budgets, self.legal_actions_1_copy, self.legal_actions_2
-        )
-        if outside_tree:
+        legal_actions = state.legal_actions(self.budgets)
+        if expanded:
             # simulation
             a = choice(legal_actions)
         elif s in self.Ns:
@@ -129,7 +108,7 @@ class MCTS:
                 sa = f"{s}_{a}"
                 if sa in self.Qsa:
                     u = self.Qsa[sa] + math.sqrt(
-                        2 * math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
+                        self.cpuct * math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
                     )
                     if u > cur_best:
                         cur_best = u
@@ -141,23 +120,16 @@ class MCTS:
         else:
             # Expansion:
             a = choice(legal_actions)
-            outside_tree = True
+            expanded = True
             first_expanded = True
 
-        # Get the next state
         next_s = state.next_state(a, self.budgets)
 
-        # Get rid of action in legal_actions_1_copy
-        # When block_2b_replaced < 0, it means we are selecting a block to be replaced
-        # And the new action is block to be replaced
-        if state.block_2b_replaced < 0:
-            self.legal_actions_1_copy.remove(a)
-
         # Recursively search to get the return value
-        v = self.search(next_s, outside_tree)
+        v = self.search(next_s, expanded)
 
         # Backprogation: Update statistics based on the return value
-        if first_expanded or not outside_tree:
+        if first_expanded or not expanded:
             sa = f"{s}_{a}"
             # The following is according to alpha-zero-general implementation:
             # https://github.com/suragnair/alpha-zero-general/blob/master/MCTS.py

@@ -54,7 +54,7 @@ from text_task_utils.evaluate import evaluate
 #     print(f"Number of changes: {n_changes}")
 
 
-def run(acc_drop_threshold=0.02, original_acc=0.89):
+def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=True):
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
@@ -77,7 +77,7 @@ def run(acc_drop_threshold=0.02, original_acc=0.89):
         model1_range_start,
         model1_range_end,
         model0_range_end,
-        sort_by_magnitude=False,
+        sort_by_magnitude=sort_by_magnitude,
     )
     print(f"Number of changes: {n_change}")
 
@@ -94,10 +94,11 @@ def deduplicate_blocks(
     candidate_range,
     sort_by_magnitude=False,
 ):
+    blocks = model_storage["blocks"]
     model_constitution = list(range(model_range_start, model_range_end))
 
     # Prepare the candidate blocks
-    candidate_blocks = model_storage["blocks"][:candidate_range]
+    candidate_blocks = blocks[:candidate_range]
     # overlapped = False if candidate_range <= model_range_start else True
 
     # The order the blocks are iterated through
@@ -105,7 +106,7 @@ def deduplicate_blocks(
     if sort_by_magnitude:
         # Sort the iterations by the magnitude of the block
         block_magnitude = np.linalg.norm(
-            model_storage["blocks"][model_range_start:model_range_end],
+            blocks[model_range_start:model_range_end],
             axis=1,
             keepdims=False,
         )
@@ -113,7 +114,7 @@ def deduplicate_blocks(
 
     n_change = 0
     for i in interate_seq:
-        block_2b_replaced = model_storage["blocks"][i]
+        block_2b_replaced = blocks[i]
         diff = np.sum(
             np.abs(candidate_blocks - block_2b_replaced), axis=1, keepdims=False
         )

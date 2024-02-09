@@ -1,13 +1,13 @@
 baseline/
 block_storage/
 dataset/
-output*/
+outputs*/
 models/
 __pycache__/
 
-mcts_old.py
 evaluate_separately.py
 test_eval.py
 
 .DS_Store
 *.out
+*.pkl

@@ -1,29 +1,25 @@
-from typing import List, Union
-from itertools import chain
 from bisect import bisect
 import pdb
 
-
-import numpy as np
 from text_task_utils.evaluate import evaluate
 
 
 class State:
     def __init__(
         self,
-        models_constitution: List[int],
+        models_constitution: list[int],
         n_unique_blocks: int,
-        remaining_budgets: List[float],
-        block_2be_replaced: int = -1,
-        model_range: Union[List[int], np.array] = None,
+        remaining_budgets: list[float],
+        block_2b_replaced: int = -1,
+        model_range: list[int] = None,
     ) -> None:
         self.models_constitution = models_constitution
         self.n_unique_blocks = n_unique_blocks
         self.remaining_budgets = remaining_budgets
-        self.block_2be_replaced = block_2be_replaced
+        self.block_2b_replaced = block_2b_replaced
         self.model_range = model_range
 
-        if block_2be_replaced >= 0:
+        if block_2b_replaced >= 0:
             self.affected_model_ids = []
             self.affected_model_constitutions = []
             self.n_affected_blocks = 0
@@ -32,7 +28,7 @@ class State:
 
     def __str__(self) -> str:
         str_repr = ",".join([str(block) for block in self.models_constitution])
-        return f"{self.block_2be_replaced}~{str_repr}"
+        return f"{self.block_2b_replaced}~{str_repr}"
 
     def get_game_end(
         self, model_storage, models_info, data_args, model_args, training_args
@@ -42,7 +38,7 @@ class State:
         If the game is ended, return negative number of blocks normalized by total number of blocks.
         Otherwise, return 0, meaning the game isn't ended.
         """
-        if self.block_2be_replaced < 0:
+        if self.block_2b_replaced < 0:
             raise RuntimeError(
                 "Shouldn't call get_game_end() when selecting a block to be replaced because it is always not the end."
             )
@@ -66,8 +62,7 @@ class State:
                 < models_info[model_id]["original_acc"]
                 - models_info[model_id]["acc_drop_threshold"]
             ):
-                total_blocks = len(self.models_constitution)
-                return -(self.n_unique_blocks - self.n_affected_blocks) / total_blocks
+                return reward_function(self)
         return 0
 
     def _block_id_to_model_id(self, block_id: int) -> int:
@@ -76,7 +71,7 @@ class State:
     def _get_affected_info(self):
         for i, start_idx in enumerate(self.model_range[:-1]):
             constitution = self.models_constitution[start_idx : self.model_range[i + 1]]
-            counts = constitution.count(self.block_2be_replaced)
+            counts = constitution.count(self.block_2b_replaced)
 
             if counts > 0:
                 self.affected_model_ids.append(i)
@@ -90,9 +85,14 @@ class State:
                     contained_models.add(model_id)
                 self.contained_model_ids.append(contained_models)
 
-    def legal_actions(self, budgets: List[float] = None) -> List[int]:
-        if self.block_2be_replaced >= 0:
-            # To choose a model to replace the block_2be_replaced
+    def legal_actions(
+        self,
+        budgets: list[float],
+        legal_actions_1_copy: list[int],
+        legal_actions_2: dict[int, dict[int, list[int]]],
+    ) -> list[int]:
+        if self.block_2b_replaced >= 0:
+            # To choose a model to replace the block_2b_replaced
 
             # Get legal actions
             legal_model_actions = []
@@ -112,24 +112,28 @@ class State:
                 if is_legal:
                     legal_model_actions.append(model_id)
             # Get legal block actions from legal model actions
-            legal_actions = chain.from_iterable(
-                (
-                    self.models_constitution[
-                        self.model_range[model_id] : self.model_range[model_id + 1]
-                    ]
-                    for model_id in legal_model_actions
-                )
-            )
-            legal_actions = list(set(legal_actions))
-            # Exclude the block_2be_replaced
-            legal_actions.remove(self.block_2be_replaced)
+            legal_actions = []
+            for model_id in legal_model_actions:
+                legal_actions.extend(legal_actions_2[self.block_2b_replaced][model_id])
+
+            # legal_actions = chain.from_iterable(
+            #     (
+            #         self.models_constitution[
+            #             self.model_range[model_id] : self.model_range[model_id + 1]
+            #         ]
+            #         for model_id in legal_model_actions
+            #     )
+            # )
+            # legal_actions = list(set(legal_actions))
+            # # Exclude the block_2b_replaced
+            # legal_actions.remove(self.block_2b_replaced)
             return legal_actions
         else:
             # To choose a block to be replaced
-            return list(set(self.models_constitution))
+            return legal_actions_1_copy
 
-    def next_state(self, action, budgets: List[float] = None):
-        if self.block_2be_replaced >= 0:
+    def next_state(self, action, budgets: list[float] = None):
+        if self.block_2b_replaced >= 0:
             print(f"Block to replace: {action}")
             action_model = self._block_id_to_model_id(action)
             budget_loss = budgets[action_model]
@@ -137,22 +141,24 @@ class State:
             # New budget is subtracted by the budget loss if the model is affected and action_model is not in the contained models
             # pdb.set_trace()
             new_budgets = [
-                budget - budget_loss
-                if kth_model in self.affected_model_ids
-                and action_model != kth_model
-                and (
-                    action_model
-                    not in self.contained_model_ids[
-                        self.affected_model_ids.index(kth_model)
-                    ]
+                (
+                    budget - budget_loss
+                    if kth_model in self.affected_model_ids
+                    and action_model != kth_model
+                    and (
+                        action_model
+                        not in self.contained_model_ids[
+                            self.affected_model_ids.index(kth_model)
+                        ]
+                    )
+                    else budget
                 )
-                else budget
                 for kth_model, budget in enumerate(self.remaining_budgets)
             ]
 
-            # New model constitution: replace the block_2be_replaced with the action
+            # New model constitution: replace the block_2b_replaced with the action
             new_constitution = [
-                action if block == self.block_2be_replaced else block
+                action if block == self.block_2b_replaced else block
                 for block in self.models_constitution
             ]
 
@@ -162,16 +168,20 @@ class State:
                 new_constitution,
                 new_n_unique_blocks,
                 new_budgets,
-                block_2be_replaced=-1,
+                block_2b_replaced=-1,
                 model_range=self.model_range,
             )
-            return State(-1, new_budgets, models_constitution=new_constitution)
         else:
             print(f"Block to be replaced: {action}")
             return State(
                 self.models_constitution,
                 self.n_unique_blocks,
                 self.remaining_budgets,
-                block_2be_replaced=action,
+                block_2b_replaced=action,
                 model_range=self.model_range,
             )
+
+
+def reward_function(state: State):
+    total_blocks = len(state.models_constitution)
+    return 1 - (state.n_unique_blocks - state.n_affected_blocks) / total_blocks

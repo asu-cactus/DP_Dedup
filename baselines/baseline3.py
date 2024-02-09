@@ -28,51 +28,64 @@ def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=False):
     model1_range_start = model_storage["model_range"][1]
     model1_range_end = model_storage["model_range"][2]
 
-    n_changes = self_deduplicate_blocks(
+    dedup_indices = set()
+    dedup_dict = defaultdict(list)
+
+    # candidate_blocks = model_storage["blocks"][model0_range_start:model0_range_end]
+    candidate_range = model0_range_end
+    dedup_indices, dedup_dict = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         acc_threshold,
+        dedup_indices,
+        dedup_dict,
         0,
         model0_range_start,
         model0_range_end,
+        candidate_range,
         sort_by_magnitude,
     )
-    print(f"Model 0: Number of changes: {n_changes}")
 
-    n_changes = self_deduplicate_blocks(
+    # candidate_blocks = model_storage["blocks"]
+    candidate_range = model1_range_end
+    dedup_indices, _ = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         acc_threshold,
+        dedup_indices,
+        dedup_dict,
         1,
         model1_range_start,
         model1_range_end,
+        candidate_range,
         sort_by_magnitude,
     )
 
-    print(f"Model 1: Number of changes: {n_changes}")
+    print(f"Number of changes: {len(dedup_indices)}")
 
 
-def self_deduplicate_blocks(
+def deduplicate_blocks(
     model_args,
     data_args,
     training_args,
     model_storage,
     acc_threshold,
+    dedup_indices,
+    dedup_dict,
     model_id,
     model_range_start,
     model_range_end,
+    candidate_range,
     sort_by_magnitude=False,
 ):
-    dedup_indices = set()
-    dedup_dict = defaultdict(list)
     model_constitution = list(range(model_range_start, model_range_end))
 
     # Prepare the candidate blocks
-    candidate_blocks = model_storage["blocks"][model_range_start:model_range_end]
+    candidate_blocks = model_storage["blocks"][:candidate_range]
     # overlapped = False if candidate_range <= model_range_start else True
 
     # The order the blocks are iterated through
@@ -95,9 +108,10 @@ def self_deduplicate_blocks(
         # # The most similar block is the block itself, so get rid of it
         # ind = ind[np.argsort(diff[ind])][1:]
 
+        # ind = diff.argsort()[1:] if overlapped else [np.argmin(diff)]
         ind = diff.argsort()[1:]
-        ind = [i + model_range_start for i in ind]
         for j in ind:
+            # j += model_range_start
             if j != i and j not in dedup_indices:
                 temp_constitution = model_constitution.copy()
                 # Replace the current block with the most similar block
@@ -126,4 +140,4 @@ def self_deduplicate_blocks(
                         dedup_dict[j].extend(dedup_dict[i])
                         del dedup_dict[i]
                 break
-    return len(dedup_indices)
+    return dedup_indices, dedup_dict

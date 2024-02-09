@@ -43,8 +43,6 @@ from transformers import Trainer
 
 # logger = logging.getLogger(__name__)
 
-os.environ["WANDB_DISABLED"] = "true"
-
 
 def evaluate(
     model_storage,

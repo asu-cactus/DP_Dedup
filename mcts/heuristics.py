@@ -146,6 +146,7 @@ def get_heuristic_info(
 
     legal_actions_2 = {}
 
+    heuristic_constant = 0
     for block_2b_replaced, value in heuristics_dict.items():
         n_can_be_placed = 0
         for i, (block_to_replace, acc) in enumerate(value.items()):
@@ -157,6 +158,7 @@ def get_heuristic_info(
             # Custom heuristic function for H1a_to_C1a
             H1a_to_C1a[block_2b_replaced] = int(50 * n_can_be_placed / len(value))
             # Custom heuristic function for H2aa_to_C2aa
+            all_pass = True
             for i, (block_to_replace, acc) in enumerate(value.items()):
                 model_id = i // training_args.top_k
                 if acc >= acc_thresholds[model_id]:
@@ -171,8 +173,10 @@ def get_heuristic_info(
                     legal_actions_2[block_2b_replaced][model_id].append(
                         block_to_replace
                     )
-
-    H = len(H1a_to_C1a)
+                else:
+                    all_pass = False
+            if all_pass:
+                heuristic_constant += 1
 
     # Make some conversions
     H2aa_to_C2aa = dict(H2aa_to_C2aa)
@@ -181,7 +185,13 @@ def get_heuristic_info(
 
     print(f"H1a_to_C1a:\n{H1a_to_C1a}")
     print(f"H2aa_to_C2aa:\n{H2aa_to_C2aa}")
-    print(f"H: {H}")
+    print(f"H: {heuristic_constant}")
     print(f"legal_actions_1:\n{legal_actions_1}")
     print(f"legal_actions_2:\n{legal_actions_2}")
-    return H, H1a_to_C1a, H2aa_to_C2aa, legal_actions_1, legal_actions_2
+    return (
+        heuristic_constant,
+        H1a_to_C1a,
+        H2aa_to_C2aa,
+        legal_actions_1,
+        legal_actions_2,
+    )

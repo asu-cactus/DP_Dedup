@@ -48,9 +48,6 @@ class MCTS:
             models_storage,
         )
 
-        # Initialize the root node of the MCTS tree
-        self.init_state = self._get_init_state(models_storage, self.budgets)
-
         # Equivalence parameter
         self.k = training_args.equivalence_param
 
@@ -69,17 +66,17 @@ class MCTS:
         if training_args.resume:
             self._resume()
 
-    def _get_init_state(self, models_storage, budgets):
-        model_range = models_storage["model_range"]
+    def initial_episode(self):
+        model_range = self.models_storage["model_range"]
         n_unique_blocks = model_range[-1]
         models_constitution = list(range(n_unique_blocks))
         # An action will be removed from legal_actions_1_copy after a block is replaced
-        # self.all_legal_actions_copy = self.all_legal_actions.copy()
+        # self.legal_actions_1_copy = self.legal_actions_1.copy()
 
         return State(
             models_constitution,
             n_unique_blocks,
-            budgets,
+            self.budgets,
             deepcopy(self.all_legal_actions),
             block_2b_replaced=-1,
             model_range=model_range,

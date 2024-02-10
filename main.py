@@ -39,13 +39,14 @@ def main():
 
     start_episode = training_args.resume_episode if training_args.resume else 0
     for i in range(start_episode + 1, start_episode + training_args.n_episodes + 1):
-        v = mcts.search(mcts.init_state, False)
-        n_distinct_blocks = -v * original_num_blocks
-        print(f"Episode {i} return value: {n_distinct_blocks}\n")
+        init_state = mcts.initial_episode()
+        v = mcts.search(init_state, False)
+        n_dedup_blocks = v * original_num_blocks
+        print(f"Episode {i} return value: {n_dedup_blocks}\n")
         if v > max_v:
             max_v = v
             with open(f"{training_args.output_dir}/best_value.txt", "a") as f:
-                f.write(f"Episode {i}: {n_distinct_blocks}\n")
+                f.write(f"Episode {i}: {n_dedup_blocks}\n")
         if i % training_args.save_every == 0:
             save_i = i
             delete_i = i - training_args.save_every * training_args.keep_n

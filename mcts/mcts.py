@@ -45,8 +45,6 @@ class MCTS:
             models_info,
             models_storage,
         )
-        # Initialize the root node of the MCTS tree
-        self.init_state = self._get_init_state(models_storage, self.budgets)
 
         self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
         self.Nsa = {}  # stores #times edge s,a was visited
@@ -56,22 +54,8 @@ class MCTS:
         if training_args.resume:
             self._resume()
 
-    def _resume(self):
-        """
-        Load previous states from pickle file.
-        """
-        output_dir = self.training_args.output_dir
-        resume_episode = self.training_args.resume_episode
-        resume_path = f"{output_dir}/mcts_states_{resume_episode}.pkl"
-        with open(resume_path, "rb") as f:
-            resume_dict = pickle.load(f)
-        self.Qsa = resume_dict["Qsa"]
-        self.Nsa = resume_dict["Nsa"]
-        self.Ns = resume_dict["Ns"]
-        self.Es = resume_dict["Es"]
-
-    def _get_init_state(self, models_storage, budgets):
-        model_range = models_storage["model_range"]
+    def initial_episode(self):
+        model_range = self.models_storage["model_range"]
         n_unique_blocks = model_range[-1]
         models_constitution = list(range(n_unique_blocks))
         # An action will be removed from legal_actions_1_copy after a block is replaced
@@ -80,7 +64,7 @@ class MCTS:
         return State(
             models_constitution,
             n_unique_blocks,
-            budgets,
+            self.budgets,
             deepcopy(self.all_legal_actions),
             block_2b_replaced=-1,
             model_range=model_range,
@@ -188,3 +172,17 @@ class MCTS:
             delete_path = f"{output_dir}/mcts_states_{delete_i}.pkl"
             if os.path.exists(delete_path):
                 os.remove(delete_path)
+
+    def _resume(self):
+        """
+        Load previous states from pickle file.
+        """
+        output_dir = self.training_args.output_dir
+        resume_episode = self.training_args.resume_episode
+        resume_path = f"{output_dir}/mcts_states_{resume_episode}.pkl"
+        with open(resume_path, "rb") as f:
+            resume_dict = pickle.load(f)
+        self.Qsa = resume_dict["Qsa"]
+        self.Nsa = resume_dict["Nsa"]
+        self.Ns = resume_dict["Ns"]
+        self.Es = resume_dict["Es"]

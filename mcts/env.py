@@ -20,10 +20,10 @@ class State:
         self.block_2b_replaced = block_2b_replaced
         self.model_range = model_range
 
-        self.n_affected_blocks = 0
         if block_2b_replaced >= 0:
             self.affected_model_ids = []
             self.affected_model_constitutions = []
+            self.n_affected_blocks = 0
             self.contained_model_ids = []  # list of set of model_ids
             self._get_affected_info()
         self.all_legal_actions = all_legal_actions
@@ -64,6 +64,7 @@ class State:
                 < models_info[model_id]["original_acc"]
                 - models_info[model_id]["acc_drop_threshold"]
             ):
+                self.n_unique_blocks -= self.n_affected_blocks
                 return reward_function(self)
         return 0
 
@@ -206,4 +207,4 @@ class State:
 
 def reward_function(state: State):
     total_blocks = len(state.models_constitution)
-    return 1 - (state.n_unique_blocks - state.n_affected_blocks) / total_blocks
+    return 1 - state.n_unique_blocks / total_blocks

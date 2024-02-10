@@ -2,9 +2,10 @@ import math
 import pickle
 from random import choice
 import os
+from copy import deepcopy
 import pdb
 
-from mcts.env import State
+from mcts.env import State, reward_function
 from mcts.heuristics import get_heuristic_info
 
 EPS = 1e-8
@@ -37,8 +38,8 @@ class MCTS:
             self.H,
             self.H1a_to_C1a,
             self.H2aa_to_C2aa,
-            self.legal_actions_1,
-            self.legal_actions_2,
+            self.all_legal_actions,
+            # self.legal_actions_reverse,
         ) = get_heuristic_info(
             model_args,
             data_args,
@@ -46,6 +47,7 @@ class MCTS:
             models_info,
             models_storage,
         )
+
         # Initialize the root node of the MCTS tree
         self.init_state = self._get_init_state(models_storage, self.budgets)
 
@@ -63,6 +65,7 @@ class MCTS:
         self.N2aa = {}  # Store heuristic confidence for each 2nd-stage action
 
         self.Es = {}  # stores return value if is terminal, 0 otherwise
+        self.As = {}  # stores the set of actions that have been taken from state s
         if training_args.resume:
             self._resume()
 
@@ -71,12 +74,13 @@ class MCTS:
         n_unique_blocks = model_range[-1]
         models_constitution = list(range(n_unique_blocks))
         # An action will be removed from legal_actions_1_copy after a block is replaced
-        self.legal_actions_1_copy = self.legal_actions_1.copy()
+        # self.all_legal_actions_copy = self.all_legal_actions.copy()
 
         return State(
             models_constitution,
             n_unique_blocks,
             budgets,
+            deepcopy(self.all_legal_actions),
             block_2b_replaced=-1,
             model_range=model_range,
         )
@@ -117,6 +121,9 @@ class MCTS:
         s = str(state)
 
         # Check if the current state is the end of the game
+        if len(state.all_legal_actions) == 0:
+            # If there is no block to be replaced, then the game ends
+            return reward_function(state)
         # If the state.block_2b_replaced < 0, then we know it is not the end of the game
         if state.block_2b_replaced >= 0:
             if s not in self.Es:
@@ -135,9 +142,7 @@ class MCTS:
         # Selection, Expansion, Simulation, Backpropagation
         first_expanded = False
 
-        legal_actions = state.legal_actions(
-            self.budgets, self.legal_actions_1_copy, self.legal_actions_2
-        )
+        legal_actions = state.legal_actions(self.budgets)
         if outside_tree:
             # simulation using the default policy
             a = choice(legal_actions)
@@ -171,12 +176,6 @@ class MCTS:
 
         # Get the next state
         next_s = state.next_state(a, self.budgets)
-
-        # Get rid of action in legal_actions_1_copy
-        # When block_2b_replaced < 0, it means we are selecting a block to be replaced
-        # And the new action is block to be replaced
-        if state.block_2b_replaced < 0:
-            self.legal_actions_1_copy.remove(a)
 
         # Recursively search to get the return value
         v = self.search(next_s, outside_tree)

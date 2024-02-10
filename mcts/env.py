@@ -10,6 +10,7 @@ class State:
         models_constitution: list[int],
         n_unique_blocks: int,
         remaining_budgets: list[float],
+        all_legal_actions: dict[int, dict[int, list[int]]],
         block_2b_replaced: int = -1,
         model_range: list[int] = None,
     ) -> None:
@@ -19,12 +20,13 @@ class State:
         self.block_2b_replaced = block_2b_replaced
         self.model_range = model_range
 
+        self.n_affected_blocks = 0
         if block_2b_replaced >= 0:
             self.affected_model_ids = []
             self.affected_model_constitutions = []
-            self.n_affected_blocks = 0
             self.contained_model_ids = []  # list of set of model_ids
             self._get_affected_info()
+        self.all_legal_actions = all_legal_actions
 
     def __str__(self) -> str:
         str_repr = ",".join([str(block) for block in self.models_constitution])
@@ -88,9 +90,9 @@ class State:
     def legal_actions(
         self,
         budgets: list[float],
-        legal_actions_1_copy: list[int],
-        legal_actions_2: dict[int, dict[int, list[int]]],
+        # all_legal_actions: dict[int, dict[int, list[int]]] = None,
     ) -> list[int]:
+
         if self.block_2b_replaced >= 0:
             # To choose a model to replace the block_2b_replaced
 
@@ -115,26 +117,24 @@ class State:
             legal_actions = []
             for model_id in legal_model_actions:
                 legal_actions.extend(
-                    legal_actions_2[self.block_2b_replaced].get(model_id, [])
+                    self.all_legal_actions[self.block_2b_replaced].get(model_id, [])
                 )
+            # Update all_legal_actions
+            # Get rid of action in all_legal_actions_copy
+            # When block_2b_replaced < 0, it means we are selecting a block to be replaced
+            # And the new action is block to be replaced
+            del self.all_legal_actions[self.block_2b_replaced]
 
-            # legal_actions = chain.from_iterable(
-            #     (
-            #         self.models_constitution[
-            #             self.model_range[model_id] : self.model_range[model_id + 1]
-            #         ]
-            #         for model_id in legal_model_actions
-            #     )
-            # )
-            # legal_actions = list(set(legal_actions))
-            # # Exclude the block_2b_replaced
-            # legal_actions.remove(self.block_2b_replaced)
             return legal_actions
         else:
             # To choose a block to be replaced
-            return legal_actions_1_copy
+            return list(self.all_legal_actions.keys())
 
-    def next_state(self, action, budgets: list[float] = None):
+    def next_state(
+        self,
+        action,
+        budgets: list[float] = None,
+    ):
         if self.block_2b_replaced >= 0:
             print(f"Block to replace: {action}")
             action_model = self._block_id_to_model_id(action)
@@ -166,10 +166,29 @@ class State:
 
             # New number of unique blocks
             new_n_unique_blocks = self.n_unique_blocks - self.n_affected_blocks
+
+            # Once a block is replaced, it can't replace other blocks.
+            # Here, state.block_2b_replaced become the block to replace other blocks.
+            to_delete_pair = []
+            for block_2b_replaced, value in self.all_legal_actions.items():
+                for model_id, blocks_to_replace in value.items():
+                    if self.block_2b_replaced in blocks_to_replace:
+                        blocks_to_replace.remove(self.block_2b_replaced)
+                        if len(blocks_to_replace) == 0:
+                            to_delete_pair.append((block_2b_replaced, model_id))
+            to_delete = []
+            for block_2b_replaced, model_id in to_delete_pair:
+                del self.all_legal_actions[block_2b_replaced][model_id]
+                if len(self.all_legal_actions[block_2b_replaced]) == 0:
+                    to_delete.append(block_2b_replaced)
+            for block_2b_replaced in to_delete:
+                del self.all_legal_actions[block_2b_replaced]
+
             return State(
                 new_constitution,
                 new_n_unique_blocks,
                 new_budgets,
+                self.all_legal_actions,
                 block_2b_replaced=-1,
                 model_range=self.model_range,
             )
@@ -179,6 +198,7 @@ class State:
                 self.models_constitution,
                 self.n_unique_blocks,
                 self.remaining_budgets,
+                self.all_legal_actions,
                 block_2b_replaced=action,
                 model_range=self.model_range,
             )

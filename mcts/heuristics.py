@@ -1,7 +1,7 @@
 import pdb
 import pickle
-from bisect import bisect
 from collections import defaultdict
+from dataclasses import dataclass
 import os
 
 import numpy as np
@@ -146,7 +146,7 @@ def get_heuristic_info(
 
     legal_actions_2 = {}
 
-    heuristic_constant = 0
+    dedup_counts = 0
     for block_2b_replaced, value in heuristics_dict.items():
         n_can_be_placed = 0
         for i, (block_to_replace, acc) in enumerate(value.items()):
@@ -176,22 +176,42 @@ def get_heuristic_info(
                 else:
                     all_pass = False
             if all_pass:
-                heuristic_constant += 1
+                dedup_counts += 1
+
+    all_legal_actions = legal_actions_2
+    # legal_actions_reverse = defaultdict(list)
+    # for block_2b_replaced, value in all_legal_actions.items():
+    #     for model_id, block_to_replace in value.items():
+    #         legal_actions_reverse[block_to_replace].append(
+    #             ReverseDictValue(block_2b_replaced, model_id)
+    #         )
 
     # Make some conversions
     H2aa_to_C2aa = dict(H2aa_to_C2aa)
-    legal_actions_1 = list(H1a_to_C1a.keys())
-    legal_actions_2 = {k: dict(v) for k, v in legal_actions_2.items()}
+    # legal_actions_1 = list(H1a_to_C1a.keys())
+    all_legal_actions = {k: dict(v) for k, v in all_legal_actions.items()}
+    # legal_actions_reverse = dict(legal_actions_reverse)
+    heuristic_constant = 1 - dedup_counts / models_storage["model_range"][-1]
 
     print(f"H1a_to_C1a:\n{H1a_to_C1a}")
     print(f"H2aa_to_C2aa:\n{H2aa_to_C2aa}")
+    print(f"dedup_counts: {dedup_counts}")
     print(f"H: {heuristic_constant}")
-    print(f"legal_actions_1:\n{legal_actions_1}")
-    print(f"legal_actions_2:\n{legal_actions_2}")
+    # print(f"legal_actions_1:\n{legal_actions_1}")
+    print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")
+    print(f"all_legal_actions:\n{all_legal_actions}")
+    # print(f"legal_actions_reverse:\n{legal_actions_reverse}")
     return (
         heuristic_constant,
         H1a_to_C1a,
         H2aa_to_C2aa,
-        legal_actions_1,
-        legal_actions_2,
+        # legal_actions_1,
+        all_legal_actions,
+        # legal_actions_reverse,
     )
+
+
+@dataclass
+class ReverseDictValue:
+    block_2b_replaced: int
+    model_id: int

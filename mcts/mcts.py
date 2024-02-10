@@ -1,6 +1,7 @@
 import math
 import pickle
 import os
+from copy import deepcopy
 from random import choice
 import pdb
 
@@ -35,8 +36,8 @@ class MCTS:
             _,
             _,
             _,
-            self.legal_actions_1,
-            self.legal_actions_2,
+            self.all_legal_actions,
+            # self.legal_actions_reverse,
         ) = get_heuristic_info(
             model_args,
             data_args,
@@ -74,12 +75,13 @@ class MCTS:
         n_unique_blocks = model_range[-1]
         models_constitution = list(range(n_unique_blocks))
         # An action will be removed from legal_actions_1_copy after a block is replaced
-        self.legal_actions_1_copy = self.legal_actions_1.copy()
+        # self.legal_actions_1_copy = self.legal_actions_1.copy()
 
         return State(
             models_constitution,
             n_unique_blocks,
             budgets,
+            deepcopy(self.all_legal_actions),
             block_2b_replaced=-1,
             model_range=model_range,
         )
@@ -96,7 +98,7 @@ class MCTS:
         s = str(state)
 
         # Check if the current state is the end of the game
-        if len(self.legal_actions_1_copy) == 0:
+        if len(state.all_legal_actions) == 0:
             # If there is no block to be replaced, then the game ends
             return reward_function(state)
         if state.block_2b_replaced >= 0:
@@ -115,9 +117,7 @@ class MCTS:
 
         # Selection, Expansion, Simulation, Backpropagation
         first_expanded = False
-        legal_actions = state.legal_actions(
-            self.budgets, self.legal_actions_1_copy, self.legal_actions_2
-        )
+        legal_actions = state.legal_actions(self.budgets)
         if outside_tree:
             # simulation
             a = choice(legal_actions)
@@ -141,17 +141,12 @@ class MCTS:
         else:
             # Expansion:
             a = choice(legal_actions)
-            outside_tree = True
             first_expanded = True
+            # Next action will be outside of the current tree
+            outside_tree = True
 
         # Get the next state
         next_s = state.next_state(a, self.budgets)
-
-        # Get rid of action in legal_actions_1_copy
-        # When block_2b_replaced < 0, it means we are selecting a block to be replaced
-        # And the new action is block to be replaced
-        if state.block_2b_replaced < 0:
-            self.legal_actions_1_copy.remove(a)
 
         # Recursively search to get the return value
         v = self.search(next_s, outside_tree)

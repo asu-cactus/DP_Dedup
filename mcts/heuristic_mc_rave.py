@@ -5,7 +5,7 @@ import os
 from copy import deepcopy
 import pdb
 
-from mcts.env import State, reward_function
+from mcts.env import State
 from mcts.heuristics import get_heuristic_info
 
 EPS = 1e-8
@@ -92,17 +92,17 @@ class MCTS:
         for a in legal_actions:
             sa = f"{s}_{a}"
             self.Qsa[sa] = self.H
-            # self.Nsa[sa] = 1
+            self.Nsa[sa] = 1
 
             if block_2b_replaced < 0:
                 self.Q1a[str(a)] = self.H
                 self.N1a[str(a)] = self.H1a_to_C1a[a]
-                self.Nsa[sa] = self.H1a_to_C1a[a]
+                # self.Nsa[sa] = self.H1a_to_C1a[a]
             else:
                 aa = f"{block_2b_replaced}~{a}"
                 self.Q2aa[aa] = self.H
                 self.N2aa[aa] = self.H2aa_to_C2aa[block_2b_replaced][a]
-                self.Nsa[sa] = self.H2aa_to_C2aa[block_2b_replaced][a]
+                # self.Nsa[sa] = self.H2aa_to_C2aa[block_2b_replaced][a]
         # Update self.Ns
         self.Ns[s] = sum(self.Nsa[f"{s}_{a}"] for a in legal_actions)
 
@@ -117,10 +117,11 @@ class MCTS:
         """
         s = str(state)
 
-        # Check if the current state is the end of the game
-        if len(state.all_legal_actions) == 0:
-            # If there is no block to be replaced, then the game ends
-            return reward_function(state)
+        # # Check if the current state is the end of the game
+        # if len(state.all_legal_actions) == 0:
+        #     # If there is no block to be replaced, then the game ends
+        #     return reward_function(state)
+
         # If the state.block_2b_replaced < 0, then we know it is not the end of the game
         if state.block_2b_replaced >= 0:
             if s not in self.Es:

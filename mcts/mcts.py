@@ -5,7 +5,7 @@ from copy import deepcopy
 from random import choice
 import pdb
 
-from mcts.env import State, reward_function
+from mcts.env import State
 from mcts.heuristics import get_heuristic_info
 
 EPS = 1e-8
@@ -81,10 +81,12 @@ class MCTS:
         """
         s = str(state)
 
-        # Check if the current state is the end of the game
-        if len(state.all_legal_actions) == 0:
-            # If there is no block to be replaced, then the game ends
-            return reward_function(state)
+        # # Check if the current state is the end of the game
+        # if len(state.all_legal_actions) == 0:
+        #     # If there is no block to be replaced, then the game ends
+        #     return reward_function(state)
+
+        # If the state.block_2b_replaced < 0, then we know it is not the end of the game
         if state.block_2b_replaced >= 0:
             if s not in self.Es:
                 self.Es[s] = state.get_game_end(

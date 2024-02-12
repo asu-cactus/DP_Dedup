@@ -295,6 +295,10 @@ class DynamicTrainingArguments(TrainingArguments):
         default=5,
         metadata={"help": "Top-k actions to consider in heuristic test"},
     )
+    top_k_actual: int = field(
+        default=-1,  
+        metadata={"help": "Top-k actions to consider in actual test"},
+    )
     equivalence_param: int = field(
         default=1000,
         metadata={"help": "Equivalence parameter k for Hand-select schedule"},

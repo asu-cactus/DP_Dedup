@@ -67,6 +67,9 @@ def self_deduplicate_blocks(
     model_range_end,
     sort_by_magnitude=False,
 ):
+    # dedup_indices contains all the indices of the blocks that have been deduplicated
+    # dedup_dict contains current relation between blocks to replace and blocks to be replaced:
+    # {block_to_replace0: [block_2b_replaced0, block_2b_replaced1, ...], block_to_replace1: [block_2b_replaced0, block_2b_replaced1, ...}
     dedup_indices = set()
     dedup_dict = defaultdict(list)
     model_constitution = list(range(model_range_start, model_range_end))

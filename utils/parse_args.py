@@ -296,7 +296,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Top-k actions to consider in heuristic test"},
     )
     top_k_actual: int = field(
-        default=-1,  
+        default=-1,
         metadata={"help": "Top-k actions to consider in actual test"},
     )
     equivalence_param: int = field(
@@ -304,7 +304,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Equivalence parameter k for Hand-select schedule"},
     )
     cprod: float = field(
-        default=0.1,
+        default=0.0,
         metadata={"help": "C-prod for UCT for Heuristic MC-RAVE"},
     )
     # For resume search

@@ -40,12 +40,6 @@ class State:
         If the game is ended, return negative number of blocks normalized by total number of blocks.
         Otherwise, return 0, meaning the game isn't ended.
         """
-        if self.block_2b_replaced < 0:
-            raise RuntimeError(
-                "Shouldn't call get_game_end() when selecting a block to be replaced because it is always not the end."
-            )
-            # return 0
-
         for model_id, model_constitution in zip(
             self.affected_model_ids, self.affected_model_constitutions
         ):
@@ -64,8 +58,9 @@ class State:
                 < models_info[model_id]["original_acc"]
                 - models_info[model_id]["acc_drop_threshold"]
             ):
-                self.n_unique_blocks -= self.n_affected_blocks
-                return reward_function(self)
+
+                total_blocks = self.model_range[-1]
+                return 1 - self.n_unique_blocks / total_blocks
         return 0
 
     def _block_id_to_model_id(self, block_id: int) -> int:
@@ -74,12 +69,12 @@ class State:
     def _get_affected_info(self):
         for i, start_idx in enumerate(self.model_range[:-1]):
             constitution = self.models_constitution[start_idx : self.model_range[i + 1]]
-            counts = constitution.count(self.block_2b_replaced)
+            affected_counts = constitution.count(self.block_2b_replaced)
 
-            if counts > 0:
+            if affected_counts > 0:
                 self.affected_model_ids.append(i)
                 self.affected_model_constitutions.append(constitution)
-                self.n_affected_blocks += counts
+                self.n_affected_blocks += affected_counts
                 # For each affected model, get what models it contains
                 contained_models = set()
                 for block_id in constitution:
@@ -190,7 +185,6 @@ class State:
                 new_n_unique_blocks,
                 new_budgets,
                 self.all_legal_actions,
-                block_2b_replaced=-1,
                 model_range=self.model_range,
             )
         else:
@@ -203,8 +197,3 @@ class State:
                 block_2b_replaced=action,
                 model_range=self.model_range,
             )
-
-
-def reward_function(state: State):
-    total_blocks = len(state.models_constitution)
-    return 1 - state.n_unique_blocks / total_blocks

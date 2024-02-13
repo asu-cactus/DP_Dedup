@@ -66,7 +66,6 @@ class MCTS:
             n_unique_blocks,
             self.budgets,
             deepcopy(self.all_legal_actions),
-            block_2b_replaced=-1,
             model_range=model_range,
         )
 
@@ -81,13 +80,8 @@ class MCTS:
         """
         s = str(state)
 
-        # # Check if the current state is the end of the game
-        # if len(state.all_legal_actions) == 0:
-        #     # If there is no block to be replaced, then the game ends
-        #     return reward_function(state)
-
-        # If the state.block_2b_replaced < 0, then we know it is not the end of the game
-        if state.block_2b_replaced >= 0:
+        # Check if the current state is the end of the game
+        if state.block_2b_replaced < 0:
             if s not in self.Es:
                 self.Es[s] = state.get_game_end(
                     self.models_storage,
@@ -109,21 +103,24 @@ class MCTS:
             a = choice(legal_actions)
         elif s in self.Ns:
             # Selection: pick the action with the highest upper confidence bound
-            cur_best = -float("inf")
-            best_act = -1
-            for a in legal_actions:
-                sa = f"{s}_{a}"
-                if sa in self.Qsa:
-                    u = self.Qsa[sa] + math.sqrt(
-                        2 * math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
-                    )
-                    if u > cur_best:
-                        cur_best = u
+            if len(legal_actions) == 1:
+                a = legal_actions[0]
+            else:
+                cur_best = -float("inf")
+                best_act = -1
+                for a in legal_actions:
+                    sa = f"{s}_{a}"
+                    if sa in self.Qsa:
+                        u = self.Qsa[sa] + math.sqrt(
+                            2 * math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
+                        )
+                        if u > cur_best:
+                            cur_best = u
+                            best_act = a
+                    else:
                         best_act = a
-                else:
-                    best_act = a
-                    break
-            a = best_act
+                        break
+                a = best_act
         else:
             # Expansion:
             a = choice(legal_actions)

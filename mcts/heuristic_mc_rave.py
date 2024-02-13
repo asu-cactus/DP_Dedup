@@ -78,7 +78,6 @@ class MCTS:
             n_unique_blocks,
             self.budgets,
             deepcopy(self.all_legal_actions),
-            block_2b_replaced=-1,
             model_range=model_range,
         )
 
@@ -117,13 +116,8 @@ class MCTS:
         """
         s = str(state)
 
-        # # Check if the current state is the end of the game
-        # if len(state.all_legal_actions) == 0:
-        #     # If there is no block to be replaced, then the game ends
-        #     return reward_function(state)
-
-        # If the state.block_2b_replaced < 0, then we know it is not the end of the game
-        if state.block_2b_replaced >= 0:
+        # Check if the current state is the end of the game
+        if state.block_2b_replaced < 0:
             if s not in self.Es:
                 self.Es[s] = state.get_game_end(
                     self.models_storage,
@@ -146,24 +140,27 @@ class MCTS:
             a = choice(legal_actions)
         elif s in self.Ns:
             # Selection with Hand-selection schedule in MC RAVE
-            beta = math.sqrt(self.k / (3 * self.Ns[s] + self.k))
-            cur_best = -float("inf")
-            best_act = -1
-            for a in legal_actions:
-                sa = f"{s}_{a}"
-                if state.block_2b_replaced < 0:
-                    Q_heuristic = self.Q1a[str(a)]
-                else:
-                    aa = f"{state.block_2b_replaced}~{a}"
-                    Q_heuristic = self.Q2aa[aa]
-                u = (1 - beta) * self.Qsa[sa] + beta * Q_heuristic
-                u += self.training_args.cprod * math.sqrt(
-                    math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
-                )
-                if u > cur_best:
-                    cur_best = u
-                    best_act = a
-            a = best_act
+            if len(legal_actions) == 1:
+                a = legal_actions[0]
+            else:
+                beta = math.sqrt(self.k / (3 * self.Ns[s] + self.k))
+                cur_best = -float("inf")
+                best_act = -1
+                for a in legal_actions:
+                    sa = f"{s}_{a}"
+                    if state.block_2b_replaced < 0:
+                        Q_heuristic = self.Q1a[str(a)]
+                    else:
+                        aa = f"{state.block_2b_replaced}~{a}"
+                        Q_heuristic = self.Q2aa[aa]
+                    u = (1 - beta) * self.Qsa[sa] + beta * Q_heuristic
+                    u += self.training_args.cprod * math.sqrt(
+                        math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
+                    )
+                    if u > cur_best:
+                        cur_best = u
+                        best_act = a
+                a = best_act
         else:
             # Expansion:
             self._apply_heuristics(state, legal_actions)

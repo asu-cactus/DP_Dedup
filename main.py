@@ -23,8 +23,10 @@ def main():
     models_storage = get_blocks(model_paths=model_paths)
     if training_args.mcts_mode == "uct_mcts":
         from mcts.mcts import MCTS
-    else:
+    elif training_args.mcts_mode == "heuristic_mc_rave":
         from mcts.heuristic_mc_rave import MCTS
+    else:  # training_args.mcts_mode == "mc_rave"
+        from mcts.uct_rave import MCTS
     mcts = MCTS(
         model_args,
         data_args,
@@ -48,9 +50,7 @@ def main():
             with open(f"{training_args.output_dir}/best_value.txt", "a") as f:
                 f.write(f"Episode {i}: {n_dedup_blocks}\n")
         if i % training_args.save_every == 0:
-            save_i = i
-            delete_i = i - training_args.save_every * training_args.keep_n
-            mcts.save_state(save_i, delete_i)
+            mcts.save_state(i)
 
 
 if __name__ == "__main__":

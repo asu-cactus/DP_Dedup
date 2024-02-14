@@ -13,21 +13,16 @@ class State:
         all_legal_actions: dict[int, dict[int, list[int]]],
         model_range: list[int],
         block_2b_replaced: int = -1,
-        n_affected_blocks: int = 0,
-        affected_model_ids: list[int] = [],
     ) -> None:
         self.models_constitution = models_constitution
-        self.remaining_budgets = remaining_budgets
-        self.model_range = model_range
-        self.block_2b_replaced = block_2b_replaced
-        # Both n_unique_blocks and n_affected_blocks are from previous 1st sub-action step.
-        # n_unique_blocks value is always before accuracy test fails, so can be directly used to calculate the return value.
         self.n_unique_blocks = n_unique_blocks
-        self.n_affected_blocks = n_affected_blocks
-        self.affected_model_ids = affected_model_ids
+        self.remaining_budgets = remaining_budgets
+        self.block_2b_replaced = block_2b_replaced
+        self.model_range = model_range
 
         if block_2b_replaced >= 0:
             self.affected_model_ids = []
+            self.affected_model_constitutions = []
             self.n_affected_blocks = 0
             self.contained_model_ids = []  # list of set of model_ids
             self._get_affected_info()
@@ -43,13 +38,11 @@ class State:
         """
         The games ends when the utility drop is greater than the threshold.
         If the game is ended, return the number of blocks that are deduped devided by number of total blocks.
-        Otherwise, return 0, meaning the game isn't ended. In the meanwhile, update n_unique_blocks.
+        Otherwise, return 0, meaning the game isn't ended.
         """
-        model_range = model_storage["model_range"]
-        for model_id in self.affected_model_ids:
-            model_constitution = self.models_constitution[
-                model_range[model_id] : model_range[model_id + 1]
-            ]
+        for model_id, model_constitution in zip(
+            self.affected_model_ids, self.affected_model_constitutions
+        ):
             # Set model_path and task name for evaluation
             model_args.model_name_or_path = models_info[model_id]["model_path"]
             data_args.task_name = models_info[model_id]["task_name"]
@@ -68,8 +61,6 @@ class State:
 
                 total_blocks = self.model_range[-1]
                 return 1 - self.n_unique_blocks / total_blocks
-        # If the node pass the accuracy test, update n_unique_blocks and return 0
-        self.n_unique_blocks -= self.n_affected_blocks
         return 0
 
     def _block_id_to_model_id(self, block_id: int) -> int:
@@ -82,6 +73,7 @@ class State:
 
             if affected_counts > 0:
                 self.affected_model_ids.append(i)
+                self.affected_model_constitutions.append(constitution)
                 self.n_affected_blocks += affected_counts
                 # For each affected model, get what models it contains
                 contained_models = set()
@@ -94,6 +86,7 @@ class State:
     def legal_actions(
         self,
         budgets: list[float],
+        # all_legal_actions: dict[int, dict[int, list[int]]] = None,
     ) -> list[int]:
 
         if self.block_2b_replaced >= 0:
@@ -167,8 +160,8 @@ class State:
                 for block in self.models_constitution
             ]
 
-            # # New number of unique blocks
-            # new_n_unique_blocks = self.n_unique_blocks - self.n_affected_blocks
+            # New number of unique blocks
+            new_n_unique_blocks = self.n_unique_blocks - self.n_affected_blocks
 
             # Once a block is replaced, it can't replace other blocks.
             # Here, state.block_2b_replaced become the block to replace other blocks.
@@ -189,12 +182,10 @@ class State:
 
             return State(
                 new_constitution,
-                self.n_unique_blocks,
+                new_n_unique_blocks,
                 new_budgets,
                 self.all_legal_actions,
-                self.model_range,
-                n_affected_blocks=self.n_affected_blocks,
-                affected_model_ids=self.affected_model_ids,
+                model_range=self.model_range,
             )
         else:
             print(f"Block to be replaced: {action}")
@@ -203,6 +194,6 @@ class State:
                 self.n_unique_blocks,
                 self.remaining_budgets,
                 self.all_legal_actions,
-                self.model_range,
                 block_2b_replaced=action,
+                model_range=self.model_range,
             )

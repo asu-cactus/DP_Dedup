@@ -78,7 +78,7 @@ class MCTS:
             n_unique_blocks,
             self.budgets,
             deepcopy(self.all_legal_actions),
-            model_range=model_range,
+            model_range,
         )
 
     def _apply_heuristics(self, state: State, legal_actions: list[int]):
@@ -149,14 +149,14 @@ class MCTS:
                 for a in legal_actions:
                     sa = f"{s}_{a}"
                     if state.block_2b_replaced < 0:
-                        Q_heuristic = self.Q1a[str(a)]
+                        Q_rave = self.Q1a[str(a)]
                     else:
                         aa = f"{state.block_2b_replaced}~{a}"
-                        Q_heuristic = self.Q2aa[aa]
-                    u = (1 - beta) * self.Qsa[sa] + beta * Q_heuristic
-                    u += self.training_args.cprod * math.sqrt(
-                        math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
-                    )
+                        Q_rave = self.Q2aa[aa]
+                    u = (1 - beta) * self.Qsa[sa] + beta * Q_rave
+                    # u += self.training_args.cprod * math.sqrt(
+                    #     math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
+                    # )
                     if u > cur_best:
                         cur_best = u
                         best_act = a
@@ -176,27 +176,27 @@ class MCTS:
         v = self.search(next_s, outside_tree)
 
         # Backprogation: Update statistics based on the return value
-        # Only update the nodes that are in the tree
+        # Only update the nodes that are in the tree, including the newly expanded node
         if first_expanded or not outside_tree:
             sa = f"{s}_{a}"
             self.Nsa[sa] += 1
             self.Ns[s] += 1
             self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]
 
-            # Update the Q1a and N1a or Q2aa and N2aa, depending on the value of block_2b_replaced
-            if state.block_2b_replaced < 0:
-                # Update the Q1a and N1a when current state selects a block to be replace
-                a = str(a)
-                self.N1a[a] += 1
-                self.Q1a[a] += (v - self.Q1a[a]) / self.N1a[a]
-            else:
-                # Update the Q2aa and N2aa when current state selects a block to be replaced
-                aa = f"{state.block_2b_replaced}~{a}"
-                self.N2aa[aa] += 1
-                self.Q2aa[aa] += (v - self.Q2aa[aa]) / self.N2aa[aa]
+        # Update the Q1a and N1a or Q2aa and N2aa, depending on the value of block_2b_replaced
+        if state.block_2b_replaced < 0:
+            # Update the Q1a and N1a when current state selects a block to be replace
+            a = str(a)
+            self.N1a[a] += 1
+            self.Q1a[a] += (v - self.Q1a[a]) / self.N1a[a]
+        else:
+            # Update the Q2aa and N2aa when current state selects a block to be replaced
+            aa = f"{state.block_2b_replaced}~{a}"
+            self.N2aa[aa] += 1
+            self.Q2aa[aa] += (v - self.Q2aa[aa]) / self.N2aa[aa]
         return v
 
-    def save_state(self, save_i, delete_i):
+    def save_state(self, save_i):
         output_dir = self.training_args.output_dir
         # Combine Qsa, Nsa, Ns, Es and save to pickle file
         save_dict = {
@@ -214,6 +214,7 @@ class MCTS:
             pickle.dump(save_dict, f)
 
         # Delete previous states if it exists
+        delete_i = i - training_args.save_every * training_args.keep_n
         if delete_i > 0:
             delete_path = f"{output_dir}/mcts_states_{delete_i}.pkl"
             if os.path.exists(delete_path):

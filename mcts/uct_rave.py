@@ -1,8 +1,9 @@
 import math
 import pickle
+from random import choice
 import os
 from copy import deepcopy
-from random import choice
+from collections import defaultdict
 import pdb
 
 from mcts.env import State
@@ -13,7 +14,7 @@ EPS = 1e-8
 
 class MCTS:
     """
-    MCTS with action pruning.
+    MCTS with MC-RAVE.
     """
 
     def __init__(
@@ -24,6 +25,7 @@ class MCTS:
         models_info: list[dict],
         models_storage,
     ):
+        # Put inputs as attributes
         self.model_args = model_args
         self.data_args = data_args
         self.training_args = training_args
@@ -40,9 +42,21 @@ class MCTS:
             models_storage,
         )
 
-        self.Qsa = {}  # stores Q values for s,a (as defined in the paper)
-        self.Nsa = {}  # stores #times edge s,a was visited
-        self.Ns = {}  # stores #times board s was visited
+        # Equivalence parameter
+        self.k = training_args.equivalence_param
+
+        # Initialize the MCTS tree
+        self.Qsa = defaultdict(int)  # stores Q values for s,a (as defined in the paper)
+        self.Nsa = defaultdict(int)  # stores #times edge s,a was visited
+        self.Ns = defaultdict(int)  # stores #times board s was visited
+
+        # Store heuristic value for each 1st-stage action
+        self.Q1sa = defaultdict(int)
+        self.N1sa = defaultdict(int)
+
+        # Store heuristic value for each 2nd-stage action
+        self.Q2aa = defaultdict(int)
+        self.N2aa = defaultdict(int)
 
         self.Es = {}  # stores return value if is terminal, 0 otherwise
         if training_args.resume:
@@ -91,29 +105,33 @@ class MCTS:
 
         # Selection, Expansion, Simulation, Backpropagation
         first_expanded = False
+
         legal_actions = state.legal_actions(self.budgets)
         if outside_tree:
-            # simulation
+            # simulation using the default policy
             a = choice(legal_actions)
         elif s in self.Ns:
-            # Selection: pick the action with the highest upper confidence bound
+            # Selection with Hand-selection schedule in MC RAVE
             if len(legal_actions) == 1:
                 a = legal_actions[0]
             else:
+                beta = math.sqrt(self.k / (3 * self.Ns[s] + self.k))
                 cur_best = -float("inf")
                 best_act = -1
                 for a in legal_actions:
                     sa = f"{s}_{a}"
-                    if sa in self.Qsa:
-                        u = self.Qsa[sa] + math.sqrt(
-                            2 * math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
-                        )
-                        if u > cur_best:
-                            cur_best = u
-                            best_act = a
+                    if state.block_2b_replaced < 0:
+                        Q_rave = self.Q1sa[sa]
                     else:
+                        aa = f"{state.block_2b_replaced}~{a}"
+                        Q_rave = self.Q2aa[aa]
+                    u = (1 - beta) * self.Qsa[sa] + beta * Q_rave
+                    u += self.training_args.cprod * math.sqrt(
+                        math.log(self.Ns[s]) / (self.Nsa[sa] + EPS)
+                    )
+                    if u > cur_best:
+                        cur_best = u
                         best_act = a
-                        break
                 a = best_act
         else:
             # Expansion:
@@ -130,41 +148,35 @@ class MCTS:
 
         # Backprogation: Update statistics based on the return value
         # Only update the nodes that are in the tree, including the newly expanded node
+        sa = f"{s}_{a}"
         if first_expanded or not outside_tree:
-            sa = f"{s}_{a}"
-            # The following is according to alpha-zero-general implementation:
-            # https://github.com/suragnair/alpha-zero-general/blob/master/MCTS.py
-            # self.Qsa[sa] = (self.Nsa.get(sa, 0) * self.Qsa.get(sa, 0) + v) / (
-            #     self.Nsa.get(sa, 0) + 1
-            # )
+            self.Nsa[sa] += 1
+            self.Ns[s] += 1
+            self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]
 
-            # According to the classicial MCTS, reference:
-            # https://www.cs.utexas.edu/~pstone/Courses/394Rspring11/resources/mcrave.pdf.
-            self.Nsa[sa] = self.Nsa.get(sa, 0) + 1
-            self.Ns[s] = self.Ns.get(s, 0) + 1
-            if sa in self.Qsa:
-                self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]
-            else:
-                self.Qsa[sa] = v / self.Nsa[sa]
+        # Update the Q1sa and N1sa or Q2aa and N2aa, depending on the value of block_2b_replaced
+        # Update for every action even the node is outside of the tree
+        if state.block_2b_replaced < 0:
+            # Update the Q1sa and N1sa when current state selects a block to be replace
+            self.N1sa[sa] += 1
+            self.Q1sa[sa] += (v - self.Q1sa[sa]) / self.N1sa[sa]
+        else:
+            # Update the Q2aa and N2aa when current state selects a block to be replaced
+            aa = f"{state.block_2b_replaced}~{a}"
+            self.N2aa[aa] += 1
+            self.Q2aa[aa] += (v - self.Q2aa[aa]) / self.N2aa[aa]
         return v
 
     def save_state(self, save_i):
         output_dir = self.training_args.output_dir
-        # Combine Qsa, Nsa, Ns, Es and save to pickle file
-        save_dict = {
-            "Qsa": self.Qsa,
-            "Nsa": self.Nsa,
-            "Ns": self.Ns,
-            "Es": self.Es,
-        }
-        save_path = f"{output_dir}/mcts_states_{save_i}.pkl"
+        save_path = f"{output_dir}/Es_{save_i}.pkl"
         with open(save_path, "wb") as f:
-            pickle.dump(save_dict, f)
+            pickle.dump(self.Es, f)
 
         # Delete previous states if it exists
-        delete_i = i - training_args.save_every * training_args.keep_n
+        delete_i = save_i - self.training_args.save_every * self.training_args.keep_n
         if delete_i > 0:
-            delete_path = f"{output_dir}/mcts_states_{delete_i}.pkl"
+            delete_path = f"{output_dir}/Es_{delete_i}.pkl"
             if os.path.exists(delete_path):
                 os.remove(delete_path)
 
@@ -174,10 +186,6 @@ class MCTS:
         """
         output_dir = self.training_args.output_dir
         resume_episode = self.training_args.resume_episode
-        resume_path = f"{output_dir}/mcts_states_{resume_episode}.pkl"
+        resume_path = f"{output_dir}/Es_{resume_episode}.pkl"
         with open(resume_path, "rb") as f:
-            resume_dict = pickle.load(f)
-        self.Qsa = resume_dict["Qsa"]
-        self.Nsa = resume_dict["Nsa"]
-        self.Ns = resume_dict["Ns"]
-        self.Es = resume_dict["Es"]
+            self.Es = pickle.load(f)

@@ -132,7 +132,7 @@ def get_heuristic_info(
     training_args,
     models_info,
     models_storage,
-    verbose: bool = False,
+    verbose=False,
 ):
     """Get the heuristic information for the MCTS."""
     heuristics_dict = get_heuristics_dict(
@@ -141,11 +141,8 @@ def get_heuristic_info(
     acc_thresholds = [
         info["original_acc"] - info["acc_drop_threshold"] for info in models_info
     ]
-    H1a_to_C1a = {}  # type: dict[int, int]
-    H2aa_to_C2aa = defaultdict(dict)  # type: dict[int, dict[int, int]]
 
     all_legal_actions = {}
-
     dedup_counts = 0
     for block_2b_replaced, value in heuristics_dict.items():
         n_can_be_placed = 0
@@ -155,19 +152,10 @@ def get_heuristic_info(
                 n_can_be_placed += 1
 
         if n_can_be_placed > 0:
-            # Custom heuristic function for H1a_to_C1a
-            H1a_to_C1a[block_2b_replaced] = int(50 * n_can_be_placed / len(value))
-            # Custom heuristic function for H2aa_to_C2aa
             all_pass = True
             for i, (block_to_replace, acc) in enumerate(value.items()):
                 model_id = i // training_args.top_k
                 if acc >= acc_thresholds[model_id]:
-                    H2aa_to_C2aa[block_2b_replaced][block_to_replace] = int(
-                        1000
-                        * len(value)
-                        / n_can_be_placed
-                        * (acc - acc_thresholds[model_id])
-                    )
                     if block_2b_replaced not in all_legal_actions:
                         all_legal_actions[block_2b_replaced] = defaultdict(list)
                     all_legal_actions[block_2b_replaced][model_id].append(
@@ -186,20 +174,9 @@ def get_heuristic_info(
                 ][model_id][: training_args.top_k_actual]
 
     # Make some conversions
-    H2aa_to_C2aa = dict(H2aa_to_C2aa)
     all_legal_actions = {k: dict(v) for k, v in all_legal_actions.items()}
-    heuristic_constant = 1 - dedup_counts / models_storage["model_range"][-1]
 
-    if verbose:
-        print(f"H1a_to_C1a:\n{H1a_to_C1a}")
-        print(f"H2aa_to_C2aa:\n{H2aa_to_C2aa}")
-        print(f"dedup_counts: {dedup_counts}")
-        print(f"H: {heuristic_constant}")
+    print(f"dedup_counts: {dedup_counts}")
     print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")
     print(f"all_legal_actions:\n{all_legal_actions}")
-    return (
-        heuristic_constant,
-        H1a_to_C1a,
-        H2aa_to_C2aa,
-        all_legal_actions,
-    )
+    return all_legal_actions

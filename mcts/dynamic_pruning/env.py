@@ -175,6 +175,7 @@ class State:
         self,
         action: Action,
         steps_before_eval: int,
+        Es,
     ) -> tuple[State, float]:
         print(f"Block to be replaced: {action.block_2b_replaced}")
         print(f"Block to replace: {action.block_to_replace}")
@@ -189,10 +190,13 @@ class State:
         # Check if game is ended, if games ends, return
         return_value = -1
         if steps_before_eval == 0:
-            is_game_end, return_value = self._get_game_end(
-                action,
-                new_constitution,
-            )
+            s = self.__str__()
+            sa = f"{s}_{action.block_2b_replaced}"
+            if sa in Es:
+                is_game_end, return_value = Es[sa]
+            else:
+                is_game_end, return_value = self._get_game_end(action, new_constitution)
+                Es[sa] = (is_game_end, return_value)
             # print(f"return_value: {return_value}")
             if is_game_end:
                 return None, return_value

@@ -126,7 +126,7 @@ class MCTS:
         # Get the next state
         if steps_before_eval < 0:
             steps_before_eval = self.training_args.eval_every - 1
-        next_s, curr_v = state.next_state(a, steps_before_eval)
+        next_s, curr_v = state.next_state(a, steps_before_eval, self.Es)
 
         if next_s is not None:
             # If game is not ended, recursively search to get the return value

@@ -151,20 +151,14 @@ class MCTS:
     def save_state(self, save_i):
         output_dir = self.training_args.output_dir
         # Combine Qsa, Nsa, Ns, Es and save to pickle file
-        save_dict = {
-            "Qsa": self.Qsa,
-            "Nsa": self.Nsa,
-            "Ns": self.Ns,
-            "Es": self.Es,
-        }
-        save_path = f"{output_dir}/mcts_states_{save_i}.pkl"
+        save_path = f"{output_dir}/Es_{save_i}.pkl"
         with open(save_path, "wb") as f:
-            pickle.dump(save_dict, f)
+            pickle.dump(self.Es, f)
 
         # Delete previous states if it exists
-        delete_i = i - training_args.save_every * training_args.keep_n
+        delete_i = save_i - self.training_args.save_every * self.training_args.keep_n
         if delete_i > 0:
-            delete_path = f"{output_dir}/mcts_states_{delete_i}.pkl"
+            delete_path = f"{output_dir}/Es_{delete_i}.pkl"
             if os.path.exists(delete_path):
                 os.remove(delete_path)
 
@@ -174,10 +168,6 @@ class MCTS:
         """
         output_dir = self.training_args.output_dir
         resume_episode = self.training_args.resume_episode
-        resume_path = f"{output_dir}/mcts_states_{resume_episode}.pkl"
+        resume_path = f"{output_dir}/Es_{resume_episode}.pkl"
         with open(resume_path, "rb") as f:
-            resume_dict = pickle.load(f)
-        self.Qsa = resume_dict["Qsa"]
-        self.Nsa = resume_dict["Nsa"]
-        self.Ns = resume_dict["Ns"]
-        self.Es = resume_dict["Es"]
+            self.Es = pickle.load(f)

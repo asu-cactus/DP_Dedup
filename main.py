@@ -25,6 +25,8 @@ def main():
         from mcts.mcts import MCTS
     elif training_args.mcts_mode == "heuristic_mc_rave":
         from mcts.heuristic_mc_rave import MCTS
+    elif training_args.mcts_mode == "dyn_prune_mcts":
+        from mcts.dynamic_pruning.mcts import MCTS
     else:  # training_args.mcts_mode == "mc_rave"
         from mcts.uct_rave import MCTS
     mcts = MCTS(
@@ -35,16 +37,26 @@ def main():
         models_storage,
     )
 
-    max_v = -float("inf")
+    max_v = 0
     original_num_blocks = models_storage["model_range"][-1]
     print(f"Original total number of blocks: {original_num_blocks}")
 
     start_episode = training_args.resume_episode if training_args.resume else 0
     for i in range(start_episode + 1, start_episode + training_args.n_episodes + 1):
         init_state = mcts.initial_episode()
-        v = mcts.search(init_state, False)
-        n_dedup_blocks = v * original_num_blocks
-        print(f"Episode {i} return value: {n_dedup_blocks}\n")
+        if training_args.mcts_mode == "dyn_prune_mcts":
+            v, steps2fail = mcts.search(init_state, False, training_args.eval_every - 1)
+            # print(f"steps2fail: {steps2fail}")
+            if steps2fail == training_args.eval_every - 1:
+                n_dedup_blocks = 0
+            else:
+                n_dedup_blocks = round(v * original_num_blocks)
+        else:
+            v = mcts.search(init_state, False)
+            n_dedup_blocks = round(v * original_num_blocks)
+
+        print(f"Episode {i} number of dedup blocks: {n_dedup_blocks}\n")
+
         if v > max_v:
             max_v = v
             with open(f"{training_args.output_dir}/best_value.txt", "a") as f:

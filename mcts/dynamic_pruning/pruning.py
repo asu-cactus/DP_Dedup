@@ -1,6 +1,5 @@
 import pdb
 import pickle
-from collections import defaultdict
 import os
 
 import numpy as np
@@ -45,7 +44,7 @@ def get_acc_after_dedup(
     """
     models_range = models_storage["model_range"]
     blocks = models_storage["blocks"]
-    top_k = training_args.top_k
+    # top_k = training_args.top_k
 
     model_range_start = models_range[model_id]
     model_range_end = models_range[model_id + 1]
@@ -63,24 +62,25 @@ def get_acc_after_dedup(
             diff = np.sum(
                 np.abs(candidate_blocks - block_2b_replaced), axis=1, keepdims=False
             )
-            ind = np.argpartition(diff, top_k + 1)[: top_k + 1]
+            ind = np.argpartition(diff, 2)[:2]
             ind = ind[np.argsort(diff[ind])]
-            ind = ind[1:] if model_id == target_model_id else ind[:top_k]
-            ind = [i + target_model_range_start for i in ind]
+            most_similar_block = ind[0] if ind[0] != i else ind[1]
+            most_similar_block += target_model_range_start
+            # ind = ind[1:] if model_id == target_model_id else ind[:top_k]
+            # ind = [i + target_model_range_start for i in ind]
 
-            for j in ind:
-                temp_constitution = model_constitution.copy()
-                temp_constitution[i - model_range_start] = j
+            temp_constitution = model_constitution.copy()
+            temp_constitution[i - model_range_start] = most_similar_block
 
-                acc = evaluate(
-                    models_storage,
-                    model_id,
-                    temp_constitution,
-                    data_args,
-                    model_args,
-                    training_args,
-                )
-                action_to_acc_dict[j] = acc
+            acc = evaluate(
+                models_storage,
+                model_id,
+                temp_constitution,
+                data_args,
+                model_args,
+                training_args,
+            )
+            action_to_acc_dict[most_similar_block] = acc
 
         heuristics_dict[i] = action_to_acc_dict
     return heuristics_dict
@@ -132,8 +132,7 @@ def get_heuristic_info(
     training_args,
     models_info,
     models_storage,
-    verbose=False,
-):
+) -> dict[int, dict[int, tuple[int, float]]]:
     """Get the heuristic information for the MCTS."""
     heuristics_dict = get_heuristics_dict(
         model_args, data_args, training_args, models_info, models_storage
@@ -143,40 +142,18 @@ def get_heuristic_info(
     ]
 
     all_legal_actions = {}
-    dedup_counts = 0
     for block_2b_replaced, value in heuristics_dict.items():
-        n_can_be_placed = 0
-        for i, (block_to_replace, acc) in enumerate(value.items()):
-            model_id = i // training_args.top_k
-            if acc >= acc_thresholds[model_id]:
-                n_can_be_placed += 1
+        n_target_models = len(value) // 5
+        for model_id in range(n_target_models):
+            to_sort = list(value.items())[model_id * 5 : (model_id + 1) * 5]
+            block_to_replace, acc = max(to_sort, key=lambda x: x[1])
+            # In the future use the following line to replace the above two lines
+            # block_to_replace, acc = value.items()[model_id]
+            if acc >= acc_thresholds[0]:
+                if block_2b_replaced not in all_legal_actions:
+                    all_legal_actions[block_2b_replaced] = {}
+                all_legal_actions[block_2b_replaced][model_id] = (block_to_replace, acc)
 
-        if n_can_be_placed > 0:
-            all_pass = True
-            for i, (block_to_replace, acc) in enumerate(value.items()):
-                model_id = i // training_args.top_k
-                if acc >= acc_thresholds[model_id]:
-                    if block_2b_replaced not in all_legal_actions:
-                        all_legal_actions[block_2b_replaced] = defaultdict(list)
-                    all_legal_actions[block_2b_replaced][model_id].append(
-                        block_to_replace
-                    )
-                else:
-                    all_pass = False
-            if all_pass:
-                dedup_counts += 1
-
-    if training_args.top_k_actual > 0:
-        for block_2b_replaced, value in all_legal_actions.items():
-            for model_id, block_to_replace in value.items():
-                all_legal_actions[block_2b_replaced][model_id] = all_legal_actions[
-                    block_2b_replaced
-                ][model_id][: training_args.top_k_actual]
-
-    # Make some conversions
-    all_legal_actions = {k: dict(v) for k, v in all_legal_actions.items()}
-
-    print(f"dedup_counts: {dedup_counts}")
     print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")
     print(f"all_legal_actions:\n{all_legal_actions}")
     return all_legal_actions

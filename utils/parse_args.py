@@ -285,8 +285,18 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For Heuristic MC-RAVE
     mcts_mode: str = field(
-        default="mc_rave",
-        metadata={"help": "MCTS mode, choice: mc_rave, heuristic_mc_rave, uct_mcts"},
+        default="dyn_prune_mcts",
+        metadata={
+            "help": "MCTS mode, choice: mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts"
+        },
+    )
+    fanout: int = field(
+        default=10,
+        metadata={"help": "Fanout of the first sub-action for MCTS"},
+    )
+    eval_every: int = field(
+        default=5,
+        metadata={"help": "Evaluate every n steps"},
     )
     top_k: int = field(
         default=5,

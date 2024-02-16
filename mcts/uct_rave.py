@@ -169,6 +169,7 @@ class MCTS:
 
     def save_state(self, save_i):
         output_dir = self.training_args.output_dir
+        # Combine Qsa, Nsa, Ns, Es and save to pickle file
         save_path = f"{output_dir}/Es_{save_i}.pkl"
         with open(save_path, "wb") as f:
             pickle.dump(self.Es, f)

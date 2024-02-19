@@ -1,5 +1,6 @@
 import pdb
 import pickle
+from collections import defaultdict
 import os
 
 import numpy as np
@@ -141,19 +142,24 @@ def get_heuristic_info(
         info["original_acc"] - info["acc_drop_threshold"] for info in models_info
     ]
 
-    all_legal_actions = {}
+    top_k = training_args.top_k
+    all_legal_actions = defaultdict(dict)
     for block_2b_replaced, value in heuristics_dict.items():
-        n_target_models = len(value) // 5
+        value_item = list(value.items())
+        n_target_models = len(value) // top_k
         for model_id in range(n_target_models):
-            to_sort = list(value.items())[model_id * 5 : (model_id + 1) * 5]
-            block_to_replace, acc = max(to_sort, key=lambda x: x[1])
-            # In the future use the following line to replace the above two lines
-            # block_to_replace, acc = value.items()[model_id]
+            # Use the following lines to use the one with minimum l1 distance.
+            # The they originally sorted by l1 distance, so just get the first one .
+            block_to_replace, acc = value_item[model_id * top_k]
+
+            # # Use the following lines to sort by accuracy
+            # to_sort = value_item[model_id * top_k : (model_id + 1) * top_k]
+            # block_to_replace, acc = max(to_sort, key=lambda x: x[1])
+
             if acc >= acc_thresholds[0]:
-                if block_2b_replaced not in all_legal_actions:
-                    all_legal_actions[block_2b_replaced] = {}
                 all_legal_actions[block_2b_replaced][model_id] = (block_to_replace, acc)
 
+    all_legal_actions = dict(all_legal_actions)
     print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")
     print(f"all_legal_actions:\n{all_legal_actions}")
     return all_legal_actions

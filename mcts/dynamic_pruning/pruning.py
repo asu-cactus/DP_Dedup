@@ -1,11 +1,20 @@
 import pdb
 import pickle
 from collections import defaultdict
+from dataclasses import dataclass
 import os
 
 import numpy as np
 
 from text_task_utils.evaluate import evaluate
+
+
+@dataclass
+class ActionInfo:
+    block_to_replace: int
+    acc: float
+    block_2b_replaced_norm: float
+    distance: float
 
 
 def find_last_legal_model(models_info):
@@ -141,7 +150,7 @@ def get_heuristic_info(
     acc_thresholds = [
         info["original_acc"] - info["acc_drop_threshold"] for info in models_info
     ]
-
+    blocks = models_storage["blocks"]
     top_k = training_args.top_k
     all_legal_actions = defaultdict(dict)
     for block_2b_replaced, value in heuristics_dict.items():
@@ -157,7 +166,14 @@ def get_heuristic_info(
             # block_to_replace, acc = max(to_sort, key=lambda x: x[1])
 
             if acc >= acc_thresholds[0]:
-                all_legal_actions[block_2b_replaced][model_id] = (block_to_replace, acc)
+                all_legal_actions[block_2b_replaced][model_id] = ActionInfo(
+                    block_to_replace=block_to_replace,
+                    acc=acc,
+                    block_2b_replaced_norm=np.linalg.norm(blocks[block_2b_replaced]),
+                    distance=np.sum(
+                        np.abs(blocks[block_2b_replaced] - blocks[block_to_replace])
+                    ),
+                )
 
     all_legal_actions = dict(all_legal_actions)
     print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")

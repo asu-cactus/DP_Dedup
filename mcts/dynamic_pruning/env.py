@@ -10,8 +10,9 @@ from text_task_utils.evaluate import evaluate
 class Action:
     block_2b_replaced: int
     block_to_replace: int
-    accuracy: float
     models_affected: list[int]
+    accuracy: float = None
+    block_2b_replaced_norm: float = None
 
 
 class State:
@@ -101,34 +102,40 @@ class State:
             )
 
             best_block_to_replace = None
-            max_acc = -1
-            for model_id, (block_to_replace, acc) in value.items():
-                if model_id in legal_model_actions and acc > max_acc:
-                    best_block_to_replace = block_to_replace
-                    max_acc = acc
+            # max_acc = -1
+            min_distance = float("inf")
+            best_block_to_replace_norm = None
+            for model_id, action_info in value.items():
+                # if model_id in legal_model_actions and action_info.acc > max_acc:
+                #     best_block_to_replace = action_info.block_to_replace
+                #     max_acc = action_info.acc
+                if (
+                    model_id in legal_model_actions
+                    and action_info.distance < min_distance
+                ):
+                    best_block_to_replace = action_info.block_to_replace
+                    min_distance = action_info.distance
+                    best_block_to_replace_norm = action_info.block_2b_replaced_norm
 
-            # if best_block_to_replace is None:
-            #     models_affected = []
-            #     for model_to_place, contained_block_ids in enumerate(
-            #         self.contained_block_ids
-            #     ):
-            #         if block_2b_replaced in contained_block_ids:
-            #             models_affected.append(model_to_place)
-            #     print(f"models_affected: {models_affected}")
-            #     pdb.set_trace()
-
-            # assert (
-            #     best_block_to_replace is not None
-            # ), f"block_2b_replaced: {block_2b_replaced} has no legal action."
-
+            # legal_actions.append(
+            #     Action(
+            #         block_2b_replaced=block_2b_replaced, block_to_replace=best_block_to_replace, accuracy=max_acc, models_affected=models_affected
+            #     )
+            # )
             legal_actions.append(
                 Action(
-                    block_2b_replaced, best_block_to_replace, max_acc, models_affected
+                    block_2b_replaced=block_2b_replaced,
+                    block_to_replace=best_block_to_replace,
+                    models_affected=models_affected,
+                    block_2b_replaced_norm=best_block_to_replace_norm,
                 )
             )
 
-        # Sort the legal actions by accuracy, from high to low
-        legal_actions = sorted(legal_actions, key=lambda x: x.accuracy, reverse=True)
+        # # Sort the legal actions by accuracy, from high to low
+        # legal_actions = sorted(legal_actions, key=lambda x: x.accuracy, reverse=True)
+        # # Sort the legal actions by distance, from low to high
+        legal_actions
+
         # Get top k (fanout) legal actions
         legal_actions = legal_actions[:fanout]
         # return only the block to be replaced
@@ -208,8 +215,8 @@ class State:
         # Here, state.block_2b_replaced become the block to replace other blocks.
         to_delete_pair = []
         for block_2b_replaced, value in self.all_legal_actions.items():
-            for model_id, (block_to_replace, acc) in value.items():
-                if action.block_2b_replaced == block_to_replace:
+            for model_id, action_info in value.items():
+                if action.block_2b_replaced == action_info.block_to_replace:
                     to_delete_pair.append((block_2b_replaced, model_id))
 
         to_delete = []

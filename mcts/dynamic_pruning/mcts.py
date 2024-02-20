@@ -66,8 +66,8 @@ class MCTS:
         This function is called when the search reaches a leaf node. It returns
         the value of the state from the perspective of the current player.
         """
-        # Get action that has the highest accuracy
-        best_action = max(legal_actions, key=lambda x: x.accuracy)
+        # Get action that has the lowest norm
+        best_action = min(legal_actions, key=lambda x: x.block_2b_replaced_norm)
         # With 80% probability, choose the best action, otherwise choose randomly
         if random() < 0.8:
             return best_action

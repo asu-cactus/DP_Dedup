@@ -5,7 +5,7 @@ from pathlib import Path
 
 # maximum number of blocks that can be deduplicated
 sys.setrecursionlimit(5000)
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["WANDB_DISABLED"] = "true"
 random.seed(10)
 

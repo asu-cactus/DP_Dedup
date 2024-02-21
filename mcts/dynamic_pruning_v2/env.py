@@ -91,7 +91,7 @@ class State:
 
     def legal_actions(
         self,
-        action_width: int,
+        fanout: int,
     ) -> list[Action]:
         legal_actions = []
         for block_2b_replaced, action_infos in self.all_legal_actions.items():
@@ -114,7 +114,7 @@ class State:
                     break
 
         # Get top k (fanout) legal actions
-        legal_actions = legal_actions[:action_width]
+        legal_actions = legal_actions[:fanout]
         # return only the block to be replaced
         return legal_actions
 

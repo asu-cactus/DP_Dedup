@@ -11,7 +11,7 @@ from utils import load_models_info
 from text_task_utils.evaluate import evaluate
 
 
-def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=False):
+def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=True):
     """
     This is a hard-coded version of the baseline2 method:
     Self deduplicate lower budget model, and used as a reference,
@@ -97,10 +97,14 @@ def deduplicate_blocks(
             axis=1,
             keepdims=False,
         )
+        # block_magnitude = np.quantile(
+        #     model_storage["blocks"][model_range_start:model_range_end], 0.75, axis=1
+        # )
         interate_seq = interate_seq[np.argsort(block_magnitude)]
 
     for i in interate_seq:
         block_2b_replaced = model_storage["blocks"][i]
+        # Sort by l1 distance
         diff = np.sum(
             np.abs(candidate_blocks - block_2b_replaced), axis=1, keepdims=False
         )
@@ -109,7 +113,7 @@ def deduplicate_blocks(
         # ind = ind[np.argsort(diff[ind])][1:]
 
         # ind = diff.argsort()[1:] if overlapped else [np.argmin(diff)]
-        ind = diff.argsort()[1:]
+        ind = diff.argsort()
         for j in ind:
             # j += model_range_start
             if j != i and j not in dedup_indices:
@@ -117,7 +121,9 @@ def deduplicate_blocks(
                 # Replace the current block with the most similar block
                 temp_constitution[i - model_range_start] = j
                 # If the current block was used to replace other blocks,
-                # replace those blocks with the most similar block
+                # replace those blocks with the most similar block j
+                # TODO: Correct only if all models do not use blocks from later models.
+                # Otherwise, all model that are changed should be tested.
                 if i in dedup_dict:
                     for k in dedup_dict[i]:
                         idx = k - model_range_start
@@ -139,5 +145,7 @@ def deduplicate_blocks(
                     if i in dedup_dict:
                         dedup_dict[j].extend(dedup_dict[i])
                         del dedup_dict[i]
+                print(f"Model {model_id} block {j} -> {i} acc: {acc:.4f}")
+                print(f"Model constitution after dedup: {model_constitution}")
                 break
     return dedup_indices, dedup_dict

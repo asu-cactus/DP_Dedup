@@ -26,7 +26,9 @@ def main():
     elif training_args.mcts_mode == "heuristic_mc_rave":
         from mcts.heuristic_mc_rave import MCTS
     elif training_args.mcts_mode == "dyn_prune_mcts":
-        from mcts.dynamic_pruning.mcts import MCTS
+        from mcts.dynamic_pruning_v2.mcts import MCTS
+    elif training_args.mcts_mode == "dyn_prune_uct_rave":
+        from mcts.dynamic_pruning_v2.uct_rave import MCTS
     else:  # training_args.mcts_mode == "mc_rave"
         from mcts.uct_rave import MCTS
     mcts = MCTS(
@@ -44,8 +46,16 @@ def main():
     start_episode = training_args.resume_episode if training_args.resume else 0
     for i in range(start_episode + 1, start_episode + training_args.n_episodes + 1):
         init_state = mcts.initial_episode()
-        if training_args.mcts_mode == "dyn_prune_mcts":
-            v, steps2fail = mcts.search(init_state, False, training_args.eval_every - 1)
+        if (
+            training_args.mcts_mode == "dyn_prune_mcts"
+            or training_args.mcts_mode == "dyn_prune_uct_rave"
+        ):
+            v, steps2fail = mcts.search(
+                state=init_state,
+                fanout=training_args.fanout,
+                outside_tree=False,
+                steps_before_eval=training_args.eval_every - 1,
+            )
             # print(f"steps2fail: {steps2fail}")
             if steps2fail == training_args.eval_every - 1:
                 n_dedup_blocks = 0

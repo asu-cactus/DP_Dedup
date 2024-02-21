@@ -1,7 +1,7 @@
 import pdb
 import pickle
-from collections import defaultdict
 from dataclasses import dataclass
+from bisect import bisect
 import os
 
 import numpy as np
@@ -9,12 +9,19 @@ import numpy as np
 from text_task_utils.evaluate import evaluate
 
 
+# @dataclass
+# class ActionInfo:
+#     block_to_replace: int
+#     acc: float
+#     block_2b_replaced_norm: float
+#     distance: float
+
+
 @dataclass
 class ActionInfo:
-    block_to_replace: int 
-    acc: float
-    block_2b_replaced_norm: float
-    distance: float
+    block_to_replace: int
+    model_id: int
+
 
 def find_last_legal_model(models_info):
     """Find the legal models to deduplicate.
@@ -135,48 +142,111 @@ def get_heuristics_dict(
     return heuristics_dict
 
 
+def _block_id_to_model_id(model_range: list[int], block_id: int) -> int:
+    return bisect(model_range[1:], block_id)
+
+
+def _print_all_action_space(all_legal_actions):
+    print("all_legal_actions:")
+    for block_2b_replaced, action_infos in all_legal_actions.items():
+        print(f"{block_2b_replaced}: {action_infos[:10]}")
+    print(f"Original action space width: {len(all_legal_actions)}")
+
+
 def get_heuristic_info(
     model_args,
     data_args,
     training_args,
     models_info,
     models_storage,
+    order_by_magnitude: bool = True,
 ) -> dict[int, dict[int, tuple[int, float]]]:
     """Get the heuristic information for the MCTS."""
+    # Load all_legal_actions from pickle if it exists
+    if os.path.exists("all_legal_actions.pkl"):
+        with open("all_legal_actions.pkl", "rb") as f:
+            all_legal_actions = pickle.load(f)
+        print("Loaded all_legal_actions from pickle")
+        _print_all_action_space(all_legal_actions)
+        return all_legal_actions
+
     heuristics_dict = get_heuristics_dict(
         model_args, data_args, training_args, models_info, models_storage
     )
-
+    last_legal_model = find_last_legal_model(models_info)
 
     acc_thresholds = [
         info["original_acc"] - info["acc_drop_threshold"] for info in models_info
     ]
+    models_range = models_storage["model_range"]
     blocks = models_storage["blocks"]
     top_k = training_args.top_k
-    all_legal_actions = defaultdict(dict)
-    for block_2b_replaced, value in heuristics_dict.items():
-        value_item = list(value.items())
-        n_target_models = len(value) // top_k
-        for model_id in range(n_target_models):
-            # Use the following lines to use the one with minimum l1 distance.
-            # The they originally sorted by l1 distance, so just get the first one .
-            block_to_replace, acc = value_item[model_id * top_k]
+    all_legal_actions = {}
 
-            # # Use the following lines to sort by accuracy
-            # to_sort = value_item[model_id * top_k : (model_id + 1) * top_k]
-            # block_to_replace, acc = max(to_sort, key=lambda x: x[1])
+    if order_by_magnitude:
+        # Note that this is different from the baseline method, which order in each model, starting from the smallest privacy budget model.
+        # Order block_2b_replaced by l2 norm
+        block_magnitude = np.linalg.norm(
+            blocks,
+            axis=1,
+            keepdims=False,
+        )
+        interate_seq = np.argsort(block_magnitude)
+        heuristics_dict = {key: heuristics_dict[key] for key in interate_seq}
 
-            if acc >= acc_thresholds[0]:
-                all_legal_actions[block_2b_replaced][model_id] = ActionInfo(
-                    block_to_replace=block_to_replace,
-                    acc=acc,
-                    block_2b_replaced_norm=np.linalg.norm(blocks[block_2b_replaced]),
-                    distance=np.sum(
-                        np.abs(blocks[block_2b_replaced] - blocks[block_to_replace])
-                    ),
-                )
+    for block_2b_replaced_id, value in heuristics_dict.items():
+        block_2b_replaced = blocks[block_2b_replaced_id]
+        curr_model_id = _block_id_to_model_id(models_range, block_2b_replaced_id)
+        # accs = [acc for block_to_replace, acc in value.items()]
+        # n_target_models = len(value) // top_k
+        # for model_id in range(n_target_models):
+        #     # Use the following lines to use the one with minimum l1 distance.
+        #     # The they originally sorted by l1 distance, so just get the first one .
+        #     first_idx = -1
+        #     model_accs = accs[model_id * top_k :]
+        #     for i, acc in enumerate(model_accs):
+        #         if acc < acc_thresholds[model_id]:
+        #             first_idx = i
+        #             break
+        #     if first_idx == -1:
+        #         continue
 
-    all_legal_actions = dict(all_legal_actions)
-    print(f"all legal 1st sub actions: {list(all_legal_actions.keys())}")
-    print(f"all_legal_actions:\n{all_legal_actions}")
+        # if all(acc < acc_thresholds[curr_model_id] for acc in accs):
+        #     continue
+
+        delete_indices = []
+        acc_threshold = acc_thresholds[curr_model_id]
+        pass_test = False
+        for block_to_replace, acc in value.items():
+            if acc < acc_threshold:
+                delete_indices.append(block_to_replace)
+            else:
+                pass_test = True
+                break
+        if not pass_test:
+            continue
+
+        # Sort the legal actions by distance, from low to high
+        candidate_end = models_range[last_legal_model[curr_model_id] + 1]
+        candidate_blocks = blocks[:candidate_end]
+        diff = np.sum(
+            np.abs(candidate_blocks - block_2b_replaced),
+            axis=1,
+            keepdims=False,
+        )
+        ind = np.argsort(diff).tolist()
+        ind.remove(block_2b_replaced_id)
+        for i in delete_indices:
+            ind.remove(i)
+
+        action_infos = [
+            ActionInfo(i, _block_id_to_model_id(models_range, i)) for i in ind
+        ]
+        all_legal_actions[block_2b_replaced_id] = action_infos
+
+    # Save all_legal_actions with pickle
+    with open("all_legal_actions.pkl", "wb") as f:
+        pickle.dump(all_legal_actions, f)
+
+    _print_all_action_space(all_legal_actions)
     return all_legal_actions

@@ -275,11 +275,11 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Output directory"},
     )
     n_episodes: int = field(
-        default=10000,
+        default=50000,
         metadata={"help": "Number of episodes for MCTS"},
     )
     save_every: int = field(
-        default=100,
+        default=1000,
         metadata={"help": "Save MCTS results every n episodes"},
     )
 
@@ -295,7 +295,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Fanout of the first sub-action for MCTS"},
     )
     eval_every: int = field(
-        default=5,
+        default=3,
         metadata={"help": "Evaluate every n steps"},
     )
     top_k: int = field(
@@ -307,7 +307,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Top-k actions to consider in actual test"},
     )
     equivalence_param: int = field(
-        default=1000,
+        default=10000,
         metadata={"help": "Equivalence parameter k for Hand-select schedule"},
     )
     cprod: float = field(

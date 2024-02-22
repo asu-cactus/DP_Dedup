@@ -3,6 +3,7 @@ import pickle
 from dataclasses import dataclass
 from bisect import bisect
 import os
+from time import time
 
 import numpy as np
 
@@ -147,7 +148,6 @@ def _block_id_to_model_id(model_range: list[int], block_id: int) -> int:
 
 
 def _print_all_action_space(all_legal_actions):
-    print("all_legal_actions:")
     for block_2b_replaced, action_infos in all_legal_actions.items():
         print(f"{block_2b_replaced}: {action_infos[:10]}")
     print(f"Original action space width: {len(all_legal_actions)}")
@@ -162,9 +162,18 @@ def get_heuristic_info(
     order_by_magnitude: bool = True,
 ) -> dict[int, dict[int, tuple[int, float]]]:
     """Get the heuristic information for the MCTS."""
+
+    # Get file name
+    if training_args.orderby == "l2_norm":
+        file_name = "all_legal_actions_l2.pkl"
+    elif training_args.orderby == "3rd_quantile":
+        file_name = "all_legal_actions_3rd.pkl"
+    else:
+        raise ValueError(f"Unknown training_args.orderby: {training_args.orderby}")
+
     # Load all_legal_actions from pickle if it exists
-    if os.path.exists("all_legal_actions.pkl"):
-        with open("all_legal_actions.pkl", "rb") as f:
+    if os.path.exists(file_name):
+        with open(file_name, "rb") as f:
             all_legal_actions = pickle.load(f)
         print("Loaded all_legal_actions from pickle")
         _print_all_action_space(all_legal_actions)
@@ -180,39 +189,34 @@ def get_heuristic_info(
     ]
     models_range = models_storage["model_range"]
     blocks = models_storage["blocks"]
-    top_k = training_args.top_k
     all_legal_actions = {}
 
     if order_by_magnitude:
-        # Note that this is different from the baseline method, which order in each model, starting from the smallest privacy budget model.
-        # Order block_2b_replaced by l2 norm
-        block_magnitude = np.linalg.norm(
-            blocks,
-            axis=1,
-            keepdims=False,
-        )
-        interate_seq = np.argsort(block_magnitude)
-        heuristics_dict = {key: heuristics_dict[key] for key in interate_seq}
+        # # Note that this is different from the baseline method, which order in each model, starting from the smallest privacy budget model.
+        # if training_args.orderby == "l2_norm":
+        #     block_magnitude = np.linalg.norm(blocks, axis=1)
+        # else:
+        #     block_magnitude = np.quantile(blocks, 0.75, axis=1)
+        # interate_seq = np.argsort(block_magnitude)
+        # heuristics_dict = {key: heuristics_dict[key] for key in interate_seq}
+
+        # The following code order blocks in each model and put them together
+        temp_dict = {}
+        for i, model_start in enumerate(models_range[:-1]):
+            model_end = models_range[i + 1]
+            model_blocks = blocks[model_start:model_end]
+            if training_args.orderby == "l2_norm":
+                block_magnitude = np.linalg.norm(model_blocks, axis=1)
+            else:
+                block_magnitude = np.quantile(model_blocks, 0.75, axis=1)
+            interate_seq = np.argsort(block_magnitude)
+            interate_seq = [j + model_start for j in interate_seq]
+            temp_dict.update({key: heuristics_dict[key] for key in interate_seq})
+        heuristics_dict = temp_dict
 
     for block_2b_replaced_id, value in heuristics_dict.items():
         block_2b_replaced = blocks[block_2b_replaced_id]
         curr_model_id = _block_id_to_model_id(models_range, block_2b_replaced_id)
-        # accs = [acc for block_to_replace, acc in value.items()]
-        # n_target_models = len(value) // top_k
-        # for model_id in range(n_target_models):
-        #     # Use the following lines to use the one with minimum l1 distance.
-        #     # The they originally sorted by l1 distance, so just get the first one .
-        #     first_idx = -1
-        #     model_accs = accs[model_id * top_k :]
-        #     for i, acc in enumerate(model_accs):
-        #         if acc < acc_thresholds[model_id]:
-        #             first_idx = i
-        #             break
-        #     if first_idx == -1:
-        #         continue
-
-        # if all(acc < acc_thresholds[curr_model_id] for acc in accs):
-        #     continue
 
         delete_indices = []
         acc_threshold = acc_thresholds[curr_model_id]
@@ -229,6 +233,7 @@ def get_heuristic_info(
         # Sort the legal actions by distance, from low to high
         candidate_end = models_range[last_legal_model[curr_model_id] + 1]
         candidate_blocks = blocks[:candidate_end]
+
         diff = np.sum(
             np.abs(candidate_blocks - block_2b_replaced),
             axis=1,
@@ -245,7 +250,7 @@ def get_heuristic_info(
         all_legal_actions[block_2b_replaced_id] = action_infos
 
     # Save all_legal_actions with pickle
-    with open("all_legal_actions.pkl", "wb") as f:
+    with open(file_name, "wb") as f:
         pickle.dump(all_legal_actions, f)
 
     _print_all_action_space(all_legal_actions)

@@ -287,8 +287,12 @@ class DynamicTrainingArguments(TrainingArguments):
     mcts_mode: str = field(
         default="dyn_prune_mcts",
         metadata={
-            "help": "MCTS mode, choice: mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts"
+            "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
         },
+    )
+    orderby: str = field(
+        default="3rd_quantile",
+        metadata={"help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm]"},
     )
     fanout: int = field(
         default=10,

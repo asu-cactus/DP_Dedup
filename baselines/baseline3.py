@@ -80,7 +80,7 @@ def deduplicate_blocks(
     model_range_start,
     model_range_end,
     candidate_range,
-    sort_by_magnitude=False,
+    sort_by_magnitude,
 ):
     model_constitution = list(range(model_range_start, model_range_end))
 
@@ -91,15 +91,14 @@ def deduplicate_blocks(
     # The order the blocks are iterated through
     interate_seq = np.arange(model_range_start, model_range_end)
     if sort_by_magnitude:
-        # Sort the iterations by the magnitude of the block
-        block_magnitude = np.linalg.norm(
-            model_storage["blocks"][model_range_start:model_range_end],
-            axis=1,
-            keepdims=False,
-        )
-        # block_magnitude = np.quantile(
-        #     model_storage["blocks"][model_range_start:model_range_end], 0.75, axis=1
-        # )
+        if training_args.orderby == "l2_norm":
+            block_magnitude = np.linalg.norm(
+                model_storage["blocks"][model_range_start:model_range_end], axis=1
+            )
+        elif training_args.orderby == "3rd_quantile":
+            block_magnitude = np.quantile(
+                model_storage["blocks"][model_range_start:model_range_end], 0.75, axis=1
+            )
         interate_seq = interate_seq[np.argsort(block_magnitude)]
 
     for i in interate_seq:
@@ -145,7 +144,7 @@ def deduplicate_blocks(
                     if i in dedup_dict:
                         dedup_dict[j].extend(dedup_dict[i])
                         del dedup_dict[i]
-                print(f"Model {model_id} block {j} -> {i} acc: {acc:.4f}")
+                print(f"Model {model_id} block {i} -> {j} acc: {acc:.4f}")
                 print(f"Model constitution after dedup: {model_constitution}")
                 break
     return dedup_indices, dedup_dict

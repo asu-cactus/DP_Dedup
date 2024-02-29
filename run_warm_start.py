@@ -3,9 +3,6 @@ import sys
 import random
 from pathlib import Path
 
-from final_constitution_quantile import model0, model1
-from mcts.warm_start_naive.mcts import MCTS
-
 # maximum number of blocks that can be deduplicated
 sys.setrecursionlimit(5000)
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -13,6 +10,8 @@ os.environ["WANDB_DISABLED"] = "true"
 random.seed(10)
 print(f"{os.environ['CUDA_VISIBLE_DEVICES']=}")
 
+from final_constitution_quantile import model0, model1
+from mcts.warm_start_naive.mcts import MCTS
 from utils.parse_args import parse_args
 from utils.blocker import get_blocks
 from utils import load_models_info

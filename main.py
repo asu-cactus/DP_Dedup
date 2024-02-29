@@ -29,8 +29,10 @@ def main():
         from mcts.dynamic_pruning_v2.mcts import MCTS
     elif training_args.mcts_mode == "dyn_prune_uct_rave":
         from mcts.dynamic_pruning_v2.uct_rave import MCTS
-    else:  # training_args.mcts_mode == "mc_rave"
+    elif training_args.mcts_mode == "mc_rave":
         from mcts.uct_rave import MCTS
+    else:
+        raise ValueError(f"Unknown mcts_mode: {training_args.mcts_mode}")
     mcts = MCTS(
         model_args,
         data_args,

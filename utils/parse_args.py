@@ -275,7 +275,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Output directory"},
     )
     n_episodes: int = field(
-        default=50000,
+        default=10000,
         metadata={"help": "Number of episodes for MCTS"},
     )
     save_every: int = field(
@@ -285,7 +285,7 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For Heuristic MC-RAVE
     mcts_mode: str = field(
-        default="dyn_prune_mcts",
+        default="warm_start_naive",
         metadata={
             "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
         },
@@ -315,7 +315,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Equivalence parameter k for Hand-select schedule"},
     )
     cprod: float = field(
-        default=1.0,
+        default=0.1,
         metadata={"help": "C-prod for UCT"},
     )
     # For resume search

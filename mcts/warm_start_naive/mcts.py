@@ -101,7 +101,7 @@ class MCTS:
             outside_tree = True
 
         # Get the next state
-        next_s, v, block_to_replace = state.next_state(a, self.Es)
+        next_s, v = state.next_state(a, self.Es)
         if next_s is None:
             return v, state.model_constitution
 
@@ -111,7 +111,7 @@ class MCTS:
         # Backprogation: Update statistics based on the return value
         # Only update the nodes that are in the tree, including the newly expanded node
         if first_expanded or not outside_tree:
-            sa = f"{s}_{a}_{block_to_replace}"
+            sa = f"{s}_{a}"
             self.Nsa[sa] += 1
             self.Ns[s] += 1
             self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]

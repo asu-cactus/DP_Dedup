@@ -69,9 +69,8 @@ class State:
         self,
         action,
         Es,
-        n_candidates: int = 5,
+        n_candidates: int = 3,
     ) -> tuple[State, float]:
-        final_block_to_replace = None
         n = 0
         for block_to_replace in self.all_legal_actions[action]:
 
@@ -83,7 +82,7 @@ class State:
             ]
 
             s = self.__str__()
-            sa = f"{s}_{action}_{block_to_replace}"
+            sa = f"{s}_{action}"
             if sa in Es:
                 v = Es[sa]
             else:
@@ -91,7 +90,6 @@ class State:
                 Es[sa] = v
             # print(f"return_value: {v}")
             if v == 0:
-                final_block_to_replace = block_to_replace
                 break
 
             n += 1
@@ -113,6 +111,6 @@ class State:
             if v == DEFAULT_RETURN_V
             else None
         )
-        # when v == DEFAULT_RETURN_V, the game isn't ended, next_s is None, final_block_to_replace are not None
-        # when v != DEFAULT_RETURN_V, the game is ended, next_s is None, final_block_to_replace is None
-        return next_s, v, final_block_to_replace
+        # when v == DEFAULT_RETURN_V, the game isn't ended, next_s is None
+        # when v != DEFAULT_RETURN_V, the game is ended, next_s is None
+        return next_s, v

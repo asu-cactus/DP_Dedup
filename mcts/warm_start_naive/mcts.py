@@ -28,11 +28,11 @@ class MCTS:
         self.model_args = model_args
         self.data_args = data_args
         self.training_args = training_args
-        self.models_info = models_info
+        self.model_info = models_info[model_id]
         self.models_storage = models_storage
 
         # Get pruned actions
-        self.all_legal_actions = get_heuristic_info(models_storage)
+        self.all_legal_actions = get_heuristic_info(models_storage)[model_id]
 
         self.Qsa = defaultdict(int)  # stores Q values for s,a (as defined in the paper)
         self.Nsa = defaultdict(int)  # stores #times edge s,a was visited
@@ -52,7 +52,7 @@ class MCTS:
             self.model_args,
             self.data_args,
             self.training_args,
-            self.models_info,
+            self.model_info,
             self.models_storage,
         )
 
@@ -75,24 +75,21 @@ class MCTS:
             a = choice(legal_actions)
         elif s in self.Ns:
             # Selection: pick the action with the highest upper confidence bound
-            if len(legal_actions) == 1:
-                a = legal_actions[0]
-            else:
-                cur_best = -float("inf")
-                best_act = -1
-                for a in legal_actions:
-                    sa = f"{s}_{a}"
-                    if sa in self.Qsa:
-                        u = self.Qsa[sa] + self.training_args.cprod * math.sqrt(
-                            math.log(self.Ns[s]) / (self.Nsa[sa])
-                        )
-                        if u > cur_best:
-                            cur_best = u
-                            best_act = a
-                    else:
+            cur_best = -float("inf")
+            best_act = -1
+            for a in legal_actions:
+                sa = f"{s}_{a}"
+                if sa in self.Qsa:
+                    u = self.Qsa[sa] + self.training_args.cprod * math.sqrt(
+                        math.log(self.Ns[s]) / (self.Nsa[sa])
+                    )
+                    if u > cur_best:
+                        cur_best = u
                         best_act = a
-                        break
-                a = best_act
+                else:
+                    best_act = a
+                    break
+            a = best_act
         else:
             # Expansion:
             a = choice(legal_actions)
@@ -102,11 +99,12 @@ class MCTS:
 
         # Get the next state
         next_s, v = state.next_state(a, self.Es)
-        if next_s is None:
-            return v, state.model_constitution
 
         # Recursively search to get the return value
-        v, model_constitution = self.search(next_s, outside_tree)
+        if next_s:
+            v, model_constitution = self.search(next_s, outside_tree)
+        else:
+            model_constitution = state.model_constitution
 
         # Backprogation: Update statistics based on the return value
         # Only update the nodes that are in the tree, including the newly expanded node

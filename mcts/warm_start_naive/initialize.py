@@ -128,12 +128,14 @@ def get_heuristics_dict(
 
 
 def _print_all_action_space(all_legal_actions):
-    for block_2b_replaced, blocks_to_replace in all_legal_actions.items():
-        print(f"{block_2b_replaced}: {blocks_to_replace[:10]}")
-    print(f"Original action space width: {len(all_legal_actions)}")
+    for model_id, value in all_legal_actions.items():
+        print(f"Model {model_id} action space:")
+        print(f"Original action space width: {len(value)}")
+        for block_2b_replaced, blocks_to_replace in value.items():
+            print(f"{block_2b_replaced}: {blocks_to_replace[:10]}")
 
 
-def get_heuristic_info(models_storage) -> dict[int, list[int]]:
+def get_heuristic_info(models_storage) -> dict[int, dict[int, list[int]]]:
     """Get the heuristic information for the MCTS."""
     file_name = "all_legal_actions_self_dedup.pkl"
 
@@ -145,23 +147,23 @@ def get_heuristic_info(models_storage) -> dict[int, list[int]]:
         _print_all_action_space(all_legal_actions)
         return all_legal_actions
 
-    # heuristics_dict = get_heuristics_dict(
-    #     model_args, data_args, training_args, models_info, models_storage
-    # )
-    # last_legal_model = find_last_legal_model(models_info)
-
-    # acc_thresholds = [
-    #     info["original_acc"] - info["acc_drop_threshold"] for info in models_info
-    # ]
-    # models_range = models_storage["model_range"]
     blocks = models_storage["blocks"]
-    all_legal_actions = {}
+    models_range = models_storage["model_range"]
+    all_legal_actions = {0: {}, 1: {}}
 
-    for model_constitute in [fcq.model0, fcq.model1]:
+    for model_id, model_constitute in enumerate([fcq.model0, fcq.model1]):
+        model_range_start = models_range[model_id]
+        model_range_end = models_range[model_id + 1]
         unique_block_ids = list(set(model_constitute))
+        # Filter blocks that are belong to the current model with model_id
+        blocks_2b_replaced_id = [
+            block_id
+            for block_id in unique_block_ids
+            if block_id >= model_range_start and block_id < model_range_end
+        ]
         candidate_blocks = blocks[unique_block_ids]
 
-        for block_2b_replaced_id in unique_block_ids:
+        for block_2b_replaced_id in blocks_2b_replaced_id:
             block_2b_replaced = blocks[block_2b_replaced_id]
 
             # Compute l1 distance
@@ -173,7 +175,7 @@ def get_heuristic_info(models_storage) -> dict[int, list[int]]:
 
             blocks_to_replace = [unique_block_ids[i] for i in np.argsort(diff)]
             blocks_to_replace.remove(block_2b_replaced_id)
-            all_legal_actions[block_2b_replaced_id] = blocks_to_replace
+            all_legal_actions[model_id][block_2b_replaced_id] = blocks_to_replace
 
     _print_all_action_space(all_legal_actions)
 

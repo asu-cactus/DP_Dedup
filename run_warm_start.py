@@ -24,10 +24,10 @@ def main():
     model_paths = [info["model_path"] for info in models_info]
     models_storage = get_blocks(model_paths=model_paths)
 
-    max_v = 0
     model_range = models_storage["model_range"]
 
-    for model_id, model_constitute in enumerate([model0, model1]):
+    for model_id, model_constitution in enumerate([model0, model1]):
+        max_v = 0
         original_num_blocks = model_range[model_id + 1] - model_range[model_id]
         mcts = MCTS(
             model_id,
@@ -38,7 +38,7 @@ def main():
             models_storage,
         )
         for i in range(1, training_args.n_episodes + 1):
-            init_state = mcts.initial_episode(model_constitute)
+            init_state = mcts.initial_episode(model_constitution)
             v, model_constitution = mcts.search(init_state, False)
             n_dedup_blocks = round(v * original_num_blocks)
 
@@ -57,25 +57,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # from mcts.heuristics import get_heuristics_dict
-
-    # model_args, data_args, training_args = parse_args()
-    # Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
-    # models_info = load_models_info(model_args)
-    # model_paths = [info["model_path"] for info in models_info]
-    # models_storage = get_blocks(model_paths=model_paths)
-    # get_heuristics_dict(
-    #     model_args,
-    #     data_args,
-    #     training_args,
-    #     models_info,
-    #     models_storage,
-    # )
-
-    # # Load pickle fiel heuristics_dict.pkl
-    # import pickle
-    # import pdb
-
-    # with open("heuristics_dict.pkl", "rb") as f:
-    #     heuristics_dict = pickle.load(f)
-    # pdb.set_trace()

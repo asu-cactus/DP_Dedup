@@ -11,13 +11,12 @@ from utils import load_models_info
 from text_task_utils.evaluate import evaluate
 
 
-def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=True):
+def run(sort_by_magnitude=True):
     """
     This is a hard-coded version of the baseline2 method:
     Self deduplicate lower budget model, and used as a reference,
     and then deduplcaite higher budget model (also allowing for self deduplication).
     """
-    acc_threshold = original_acc - acc_drop_threshold
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
@@ -25,14 +24,14 @@ def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=True):
 
     model0_range_start = model_storage["model_range"][0]
     model0_range_end = model_storage["model_range"][1]
-    model1_range_start = model_storage["model_range"][1]
-    model1_range_end = model_storage["model_range"][2]
 
     dedup_indices = set()
     dedup_dict = defaultdict(list)
 
-    # candidate_blocks = model_storage["blocks"][model0_range_start:model0_range_end]
     candidate_range = model0_range_end
+    acc_threshold = (
+        models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
+    )
     dedup_indices, dedup_dict = deduplicate_blocks(
         model_args,
         data_args,
@@ -47,25 +46,29 @@ def run(acc_drop_threshold=0.02, original_acc=0.89, sort_by_magnitude=True):
         candidate_range,
         sort_by_magnitude,
     )
-
-    # candidate_blocks = model_storage["blocks"]
-    candidate_range = model1_range_end
-    dedup_indices, _ = deduplicate_blocks(
-        model_args,
-        data_args,
-        training_args,
-        model_storage,
-        acc_threshold,
-        dedup_indices,
-        dedup_dict,
-        1,
-        model1_range_start,
-        model1_range_end,
-        candidate_range,
-        sort_by_magnitude,
-    )
-
     print(f"Number of changes: {len(dedup_indices)}")
+
+    # model1_range_start = model_storage["model_range"][1]
+    # model1_range_end = model_storage["model_range"][2]
+    # candidate_range = model1_range_end
+    # acc_threshold = (
+    #     models_info[1]["original_acc"] - models_info[1]["acc_drop_threshold"]
+    # )
+    # dedup_indices, _ = deduplicate_blocks(
+    #     model_args,
+    #     data_args,
+    #     training_args,
+    #     model_storage,
+    #     acc_threshold,
+    #     dedup_indices,
+    #     dedup_dict,
+    #     1,
+    #     model1_range_start,
+    #     model1_range_end,
+    #     candidate_range,
+    #     sort_by_magnitude,
+    # )
+    # print(f"Number of changes: {len(dedup_indices)}")
 
 
 def deduplicate_blocks(

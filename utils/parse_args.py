@@ -23,7 +23,7 @@ class ModelArguments:
         },
     )
     model_name_or_path: Optional[str] = field(
-        default="../fast-differential-privacy/examples/outputs/base-sst-2-eps8/",
+        default="../../models/base-sst-2-eps8",
         metadata={
             "help": "Path to pretrained model or model identifier from huggingface.co/models"
         },

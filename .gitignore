@@ -11,3 +11,4 @@ test_eval.py
 .DS_Store
 *.out
 *.pkl
+*.png

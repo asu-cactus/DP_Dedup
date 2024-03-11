@@ -69,13 +69,13 @@ def block_model_1d(
 def get_blocks(
     blocks_dir: str = "block_storage",
     model_paths: list[str] = None,
-    block_mode: str = "1d",
+    npz_filename: str = "model_storage",
 ):
     """
     Get blocks from a given model or a list of models.
     """
     # model_paths = ["roberta-base", "roberta-base"]
-    blocks_path = f"{blocks_dir}/model_storage.npz"
+    blocks_path = f"{blocks_dir}/{npz_filename}.npz"
     if not os.path.exists(blocks_path) and model_paths is not None:
         blocks = []
         biases = {}

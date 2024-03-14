@@ -28,7 +28,9 @@ def plot_constitution_heatmap():
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
-    models_storage = get_blocks(model_paths=model_paths)
+    models_storage = get_blocks(
+        model_paths=model_paths, npz_filename="model_storage_nonorm"
+    )
 
     blocks = models_storage["blocks"]
 
@@ -94,6 +96,6 @@ def check():
 
 
 if __name__ == "__main__":
-    # plot_constitution_heatmap()
+    plot_constitution_heatmap()
     # test_evaluate()
-    check()
+    # check()

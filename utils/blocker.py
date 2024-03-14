@@ -19,29 +19,29 @@ def block_model_1d(
     TODO: try flatten the weights to avoid padded wasted space.
     """
 
-    # DP-trained models have large variance that depend on the amount of noise added.
-    # We normalize weights to have unit variance and will demonormalize during reconstruction.
-    scale_factors = []
+    # # DP-trained models have large variance that depend on the amount of noise added.
+    # # We normalize weights to have unit variance and will demonormalize during reconstruction.
+    # scale_factors = []
 
     # Start blocking
     bias_dict = {}
     blocks = []
-    # nblocks = []
     n_weights = 0
 
     for i, params in enumerate(model.parameters()):
         n_weights += 1
         params.requires_grad = False
         # No deduplicating 1-d vectors (mostly bias)
+        # if params.dim() == 1 or params.squeeze().dim() == 1:
         if params.dim() == 1:
             bias_dict[i] = params.numpy()
             continue
 
-        # Normalize weights
-        std = params.var().sqrt().item()
-        params = params / std
-        print(f"Layer {i} std: {std}")
-        scale_factors.append(std)
+        # # Normalize weights
+        # std = params.var().sqrt().item()
+        # params = params / std
+        # # print(f"Layer {i} std: {std}")
+        # scale_factors.append(std)
 
         # Block 2-d matrix
         params_flatten = params.flatten()
@@ -52,17 +52,14 @@ def block_model_1d(
             )
         block = params_flatten.reshape(-1, BLOCKSIZE)
         blocks.append(block.numpy())
-        # nblocks.append(block.shape[0])
 
     model_storage = {
-        "scale_factors": np.array(scale_factors, dtype=np.float32),
+        # "scale_factors": np.array(scale_factors, dtype=np.float32),
         "blocks": np.concatenate(blocks, axis=0),
-        # "nblocks": nblocks,  # list of int
         "bias_dict": bias_dict,  # list of numpy array
         "n_weights": n_weights,  # int
     }
 
-    # blocks = torch.cat(blocks, axis=0)
     return model_storage
 
 
@@ -79,8 +76,7 @@ def get_blocks(
     if not os.path.exists(blocks_path) and model_paths is not None:
         blocks = []
         biases = {}
-        # block_names = []
-        scale_factors = []
+        # scale_factors = []
         model_range = [0]
 
         # Load blocks from blocks_path
@@ -88,15 +84,13 @@ def get_blocks(
             model = RobertaForPromptFinetuning.from_pretrained(model_path)
 
             model_storage = block_model_1d(model)
-            # model_storage["nblocks"].reverse()
 
             # Merge blocks
             blocks.append(model_storage["blocks"])
             model_range.append(model_range[-1] + blocks[-1].shape[0])
 
-            # Merge scale_factors
-            # model_storage["scale_factors"].reverse()
-            scale_factors.append(model_storage["scale_factors"])
+            # # Merge scale_factors
+            # scale_factors.append(model_storage["scale_factors"])
 
             #
             # Merge model storage for all models
@@ -108,28 +102,16 @@ def get_blocks(
                     ]
                     continue
 
-                # # Merge block_names
-                # nblocks = model_storage["nblocks"].pop()
-                # block_names.extend(
-                #     [f"{ith_model}_{jth_weight}_{k}" for k in range(nblocks)]
-                # )
-
-                # # Merge scale_factors
-                # scale_factors[f"{ith_model}_{jth_weight}"] = model_storage[
-                #     "scale_factors"
-                # ].pop()
-
         # Get rid of the first dummy block
         blocks = np.concatenate(blocks, axis=0)
 
-        # Save blocks, biases, block_names, scale_factors to blocks_path
+        # Save blocks, biases, scale_factors to blocks_path
         np.savez(
             blocks_path,
             blocks=blocks,  #  numpy array, shape: (n_all_blocks, BLOCKSIZE)
-            # block_names=np.array(block_names),  #  numpy array of type str
             model_range=np.array(model_range),  #  numpy array of type int
             biases=biases,  # dict: {f"{ith_model}_{jth_weight}": bias}
-            scale_factors=np.array(scale_factors, dtype=object),  # list of numpy arrays
+            # scale_factors=np.array(scale_factors, dtype=object),  # list of numpy arrays
             model_paths=np.array(model_paths),  #  numpy array of type str
         )
 
@@ -147,6 +129,7 @@ def reconstruct_weight(model_storage, model, model_id, model_constitution: list[
 
     for _, params in enumerate(model.parameters()):
         params.requires_grad = False
+        # if params.dim() == 1 or params.squeeze().dim() == 1:
         if params.dim() == 1:
             # For now, assume the models are loaded from original storage
             # So no need to reconstruct bias from model_storage
@@ -165,10 +148,10 @@ def reconstruct_weight(model_storage, model, model_id, model_constitution: list[
             (block_id == start + i for i, block_id in enumerate(constitution_range))
         ):
             new_weight = model_storage["blocks"][constitution_range].flatten()[:numel]
-            # Scale weights
-            new_weight = (
-                new_weight * model_storage["scale_factors"][model_id][non_bias_idx]
-            )
+            # # Scale weights
+            # new_weight = (
+            #     new_weight * model_storage["scale_factors"][model_id][non_bias_idx]
+            # )
             # Set parameter to new weight
             params.copy_(torch.from_numpy(new_weight.reshape(params.shape)))
 

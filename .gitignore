@@ -2,7 +2,6 @@ baseline/
 block_storage/
 dataset/
 outputs*/
-models/
 __pycache__/
 
 evaluate_separately.py

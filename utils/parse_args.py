@@ -23,7 +23,7 @@ class ModelArguments:
         },
     )
     model_name_or_path: Optional[str] = field(
-        default="../../models/base-sst-2-eps8",
+        default="",
         metadata={
             "help": "Path to pretrained model or model identifier from huggingface.co/models"
         },
@@ -96,7 +96,7 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
         metadata={"help": "The input data root dir."},
     )
     task_name: Optional[str] = field(
-        default="sst-2",
+        default="",
         metadata={"help": "The name of the task that the model is trained on"},
     )
 

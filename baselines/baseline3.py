@@ -20,22 +20,20 @@ def run(sort_by_magnitude=True):
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
-    model_storage = get_blocks(
-        model_paths=model_paths, npz_filename="model_storage_test"
-    )
-    pdb.set_trace()
+    model_storage = get_blocks(model_paths=model_paths, npz_filename="model_storage")
 
-    model0_range_start = model_storage["model_range"][0]
-    model0_range_end = model_storage["model_range"][1]
+    model_range_start = model_storage["model_range"][0]
+    model_range_end = model_storage["model_range"][1]
 
     dedup_indices = set()
     dedup_dict = defaultdict(list)
 
-    candidate_range = model0_range_end
+    candidate_range = model_range_end
     acc_threshold = (
         models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
     )
     data_args.task_name = models_info[0]["task_name"]
+    model_args.model_name_or_path = models_info[0]["model_path"]
     dedup_indices, dedup_dict = deduplicate_blocks(
         model_args,
         data_args,
@@ -45,20 +43,21 @@ def run(sort_by_magnitude=True):
         dedup_indices,
         dedup_dict,
         0,
-        model0_range_start,
-        model0_range_end,
+        model_range_start,
+        model_range_end,
         candidate_range,
         sort_by_magnitude,
     )
     print(f"Number of changes: {len(dedup_indices)}")
 
-    model1_range_start = model_storage["model_range"][1]
-    model1_range_end = model_storage["model_range"][2]
-    candidate_range = model1_range_end
+    model_range_start = model_storage["model_range"][1]
+    model_range_end = model_storage["model_range"][2]
+    candidate_range = model_range_end
     acc_threshold = (
         models_info[1]["original_acc"] - models_info[1]["acc_drop_threshold"]
     )
     data_args.task_name = models_info[1]["task_name"]
+    model_args.model_name_or_path = models_info[1]["model_path"]
     dedup_indices, _ = deduplicate_blocks(
         model_args,
         data_args,
@@ -68,8 +67,8 @@ def run(sort_by_magnitude=True):
         dedup_indices,
         dedup_dict,
         1,
-        model1_range_start,
-        model1_range_end,
+        model_range_start,
+        model_range_end,
         candidate_range,
         sort_by_magnitude,
     )
@@ -89,6 +88,7 @@ def deduplicate_blocks(
     model_range_end,
     candidate_range,
     sort_by_magnitude,
+    distance_metric="l1",
 ):
     model_constitution = list(range(model_range_start, model_range_end))
 
@@ -111,15 +111,17 @@ def deduplicate_blocks(
 
     for i in interate_seq:
         block_2b_replaced = model_storage["blocks"][i]
-        # Sort by l1 distance
-        diff = np.sum(
-            np.abs(candidate_blocks - block_2b_replaced), axis=1, keepdims=False
-        )
-        # ind = np.argpartition(diff, 20)[:20]
-        # # The most similar block is the block itself, so get rid of it
-        # ind = ind[np.argsort(diff[ind])][1:]
-
-        # ind = diff.argsort()[1:] if overlapped else [np.argmin(diff)]
+        # Sort by some metrics: l1, l2, cosine
+        if distance_metric == "l1":
+            diff = np.sum(np.abs(candidate_blocks - block_2b_replaced), axis=1)
+        elif distance_metric == "l2":
+            diff = np.linalg.norm(candidate_blocks - block_2b_replaced, axis=1)
+        elif distance_metric == "cosine":
+            diff = np.dot(candidate_blocks, block_2b_replaced) / (
+                np.linalg.norm(candidate_blocks) * np.linalg.norm(block_2b_replaced)
+            )
+        else:
+            raise ValueError(f"Invalid distance metric: {distance_metric}")
         ind = diff.argsort()
         for j in ind:
             # j += model_range_start

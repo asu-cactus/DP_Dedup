@@ -63,7 +63,11 @@ def test_evaluate():
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
     models_info = load_models_info(model_args)
     model_paths = [info["model_path"] for info in models_info]
-    models_storage = get_blocks(model_paths=model_paths)
+    models_storage = get_blocks(
+        model_paths=model_paths, npz_filename="model_storage_4_11"
+    )
+    data_args.task_name = models_info[0]["task_name"]
+    model_args.model_name_or_path = models_info[0]["model_path"]
     acc = evaluate(
         models_storage,
         0,
@@ -73,16 +77,18 @@ def test_evaluate():
         training_args,
     )
     print(f"Accuracy: {acc}")
-    # model1[-20:-10] = [196] * 10
-    # acc = evaluate(
-    #     models_storage,
-    #     1,
-    #     model1,
-    #     data_args,
-    #     model_args,
-    #     training_args,
-    # )
-    # print(f"Accuracy: {acc}")
+
+    data_args.task_name = models_info[1]["task_name"]
+    model_args.model_name_or_path = models_info[1]["model_path"]
+    acc = evaluate(
+        models_storage,
+        1,
+        model1,
+        data_args,
+        model_args,
+        training_args,
+    )
+    print(f"Accuracy: {acc}")
 
 
 def check():
@@ -96,6 +102,6 @@ def check():
 
 
 if __name__ == "__main__":
-    plot_constitution_heatmap()
-    # test_evaluate()
+    # plot_constitution_heatmap()
+    test_evaluate()
     # check()

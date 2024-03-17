@@ -4,6 +4,7 @@ import torch
 
 from text_task_utils.models import RobertaForPromptFinetuning
 
+from pathlib import Path
 import math
 import os
 import pdb
@@ -11,9 +12,7 @@ import pdb
 BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
 
 
-def block_model_1d(
-    model,  # PyTorch model
-):
+def block_model_1d(model, ith_model):  # PyTorch model
     """
     Partition the model weights into blocks with given block size.
     TODO: try flatten the weights to avoid padded wasted space.
@@ -53,11 +52,42 @@ def block_model_1d(
         block = params_flatten.reshape(-1, BLOCKSIZE)
         blocks.append(block.numpy())
 
+    # This part is just for experiment. Will not be used in the final version.
+    # For each block, get the layer that it belongs to, and save its start and end block index
+    if ith_model == 0:
+        search_range = np.empty((833, 2), dtype=int)
+        start_index = 0
+        for block in blocks:
+            layer_nblocks = block.shape[0]
+            search_range[start_index : start_index + layer_nblocks, 0] = start_index
+            search_range[start_index : start_index + layer_nblocks, 1] = (
+                start_index + layer_nblocks
+            )
+            start_index += layer_nblocks
+        assert start_index == 833
+    else:
+        search_range = np.empty((833, 4), dtype=int)
+        start_index = 0
+        for block in blocks:
+            layer_nblocks = block.shape[0]
+            search_range[start_index : start_index + layer_nblocks, 0] = start_index
+            search_range[start_index : start_index + layer_nblocks, 1] = (
+                start_index + layer_nblocks
+            )
+            search_range[start_index : start_index + layer_nblocks, 2] = (
+                start_index + 833
+            )
+            search_range[start_index : start_index + layer_nblocks, 3] = (
+                start_index + layer_nblocks + 833
+            )
+            start_index += layer_nblocks
+
     model_storage = {
         # "scale_factors": np.array(scale_factors, dtype=np.float32),
         "blocks": np.concatenate(blocks, axis=0),
         "bias_dict": bias_dict,  # list of numpy array
         "n_weights": n_weights,  # int
+        "search_range": search_range,  # numpy array of shape (n_all_blocks, 2)
     }
 
     return model_storage
@@ -71,9 +101,13 @@ def get_blocks(
     """
     Get blocks from a given model or a list of models.
     """
-    # model_paths = ["roberta-base", "roberta-base"]
+    # Create blocks_dir if not exists
+    Path(blocks_dir).mkdir(parents=True, exist_ok=True)
     blocks_path = f"{blocks_dir}/{npz_filename}.npz"
+
     if not os.path.exists(blocks_path) and model_paths is not None:
+        search_range = None
+
         blocks = []
         biases = {}
         # scale_factors = []
@@ -83,7 +117,7 @@ def get_blocks(
         for ith_model, model_path in enumerate(model_paths):
             model = RobertaForPromptFinetuning.from_pretrained(model_path)
 
-            model_storage = block_model_1d(model)
+            model_storage = block_model_1d(model, ith_model)
 
             # Merge blocks
             blocks.append(model_storage["blocks"])
@@ -92,7 +126,6 @@ def get_blocks(
             # # Merge scale_factors
             # scale_factors.append(model_storage["scale_factors"])
 
-            #
             # Merge model storage for all models
             for jth_weight in range(model_storage["n_weights"]):
                 # Merge biases
@@ -102,7 +135,10 @@ def get_blocks(
                     ]
                     continue
 
-        # Get rid of the first dummy block
+            if ith_model == 0:
+                search_range = model_storage["search_range"]
+
+        # Merge blocks into a single numpy array
         blocks = np.concatenate(blocks, axis=0)
 
         # Save blocks, biases, scale_factors to blocks_path
@@ -111,8 +147,9 @@ def get_blocks(
             blocks=blocks,  #  numpy array, shape: (n_all_blocks, BLOCKSIZE)
             model_range=np.array(model_range),  #  numpy array of type int
             biases=biases,  # dict: {f"{ith_model}_{jth_weight}": bias}
+            search_range=search_range,  # numpy array of shape (n_all_blocks, 2)
             # scale_factors=np.array(scale_factors, dtype=object),  # list of numpy arrays
-            model_paths=np.array(model_paths),  #  numpy array of type str
+            # model_paths=np.array(model_paths),  #  numpy array of type str
         )
 
     # Load models from blocks_path

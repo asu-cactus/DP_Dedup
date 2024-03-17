@@ -94,7 +94,6 @@ def deduplicate_blocks(
 
     # Prepare the candidate blocks
     candidate_blocks = model_storage["blocks"][:candidate_range]
-    # overlapped = False if candidate_range <= model_range_start else True
 
     # The order the blocks are iterated through
     interate_seq = np.arange(model_range_start, model_range_end)
@@ -109,6 +108,7 @@ def deduplicate_blocks(
             )
         interate_seq = interate_seq[np.argsort(block_magnitude)]
 
+    search_range = model_storage["search_range"]
     for i in interate_seq:
         block_2b_replaced = model_storage["blocks"][i]
         # Sort by some metrics: l1, l2, cosine
@@ -122,6 +122,16 @@ def deduplicate_blocks(
             )
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
+
+        # This part is just for experiment. Will not be used in the final version.
+        if model_id == 0:
+            diff[0 : search_range[i, 0]] = np.inf
+            diff[search_range[i, 1] :] = np.inf
+        else:
+            diff[0 : search_range[i - 833, 0]] = np.inf
+            diff[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
+            diff[search_range[i - 833, 3] :] = np.inf
+
         ind = diff.argsort()
         for j in ind:
             # j += model_range_start

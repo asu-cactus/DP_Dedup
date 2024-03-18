@@ -54,33 +54,31 @@ def block_model_1d(model, ith_model):  # PyTorch model
 
     # This part is just for experiment. Will not be used in the final version.
     # For each block, get the layer that it belongs to, and save its start and end block index
-    if ith_model == 0:
-        search_range = np.empty((833, 2), dtype=int)
-        start_index = 0
-        for block in blocks:
-            layer_nblocks = block.shape[0]
-            search_range[start_index : start_index + layer_nblocks, 0] = start_index
-            search_range[start_index : start_index + layer_nblocks, 1] = (
-                start_index + layer_nblocks
-            )
-            start_index += layer_nblocks
-        assert start_index == 833
-    else:
-        search_range = np.empty((833, 4), dtype=int)
-        start_index = 0
-        for block in blocks:
-            layer_nblocks = block.shape[0]
-            search_range[start_index : start_index + layer_nblocks, 0] = start_index
-            search_range[start_index : start_index + layer_nblocks, 1] = (
-                start_index + layer_nblocks
-            )
-            search_range[start_index : start_index + layer_nblocks, 2] = (
-                start_index + 833
-            )
-            search_range[start_index : start_index + layer_nblocks, 3] = (
-                start_index + layer_nblocks + 833
-            )
-            start_index += layer_nblocks
+    # if ith_model == 0:
+    #     search_range = np.empty((833, 2), dtype=int)
+    #     start_index = 0
+    #     for block in blocks:
+    #         layer_nblocks = block.shape[0]
+    #         search_range[start_index : start_index + layer_nblocks, 0] = start_index
+    #         search_range[start_index : start_index + layer_nblocks, 1] = (
+    #             start_index + layer_nblocks
+    #         )
+    #         start_index += layer_nblocks
+    #     assert start_index == 833
+    # else:
+    search_range = np.empty((833, 4), dtype=int)
+    start_index = 0
+    for block in blocks:
+        layer_nblocks = block.shape[0]
+        search_range[start_index : start_index + layer_nblocks, 0] = start_index
+        search_range[start_index : start_index + layer_nblocks, 1] = (
+            start_index + layer_nblocks
+        )
+        search_range[start_index : start_index + layer_nblocks, 2] = start_index + 833
+        search_range[start_index : start_index + layer_nblocks, 3] = (
+            start_index + layer_nblocks + 833
+        )
+        start_index += layer_nblocks
 
     model_storage = {
         # "scale_factors": np.array(scale_factors, dtype=np.float32),
@@ -135,7 +133,7 @@ def get_blocks(
                     ]
                     continue
 
-            if ith_model == 0:
+            if ith_model == 1:
                 search_range = model_storage["search_range"]
 
         # Merge blocks into a single numpy array

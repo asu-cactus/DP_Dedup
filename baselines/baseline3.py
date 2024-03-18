@@ -2,7 +2,7 @@ import pdb
 import os
 from collections import defaultdict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
 
 from utils.parse_args import parse_args
@@ -88,7 +88,7 @@ def deduplicate_blocks(
     model_range_end,
     candidate_range,
     sort_by_magnitude,
-    distance_metric="l1",
+    distance_metric="cosine",
 ):
     model_constitution = list(range(model_range_start, model_range_end))
 

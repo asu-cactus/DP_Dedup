@@ -1,10 +1,5 @@
-"""Finetuning the library models for sequence classification on GLUE."""
+import pdb
 
-# import logging
-# import os
-from typing import Callable, Dict
-
-import numpy as np
 import torch
 from transformers import (
     AutoConfig,
@@ -14,6 +9,9 @@ from transformers import (
 )
 from transformers import GlueDataset
 
+from utils.parse_args import parse_args
+from utils.blocker import block_model_1d
+from utils import load_models_info
 from text_task_utils.dataset import FewShotDataset
 from text_task_utils.models import (
     BertForPromptFinetuning,
@@ -29,7 +27,6 @@ from text_task_utils.processors import (
     bound_mapping,
 )
 
-from utils.blocker import reconstruct_weight
 from utils.parse_args import (
     ModelArguments,
     DynamicDataTrainingArguments,
@@ -37,17 +34,8 @@ from utils.parse_args import (
 )
 from text_task_utils import common
 
-# from text_task_utils.trainer import Trainer
-from transformers import Trainer
 
-
-# logger = logging.getLogger(__name__)
-
-
-def evaluate(
-    model_storage,
-    model_id: int,
-    model_constitution: list[int],
+def get_model_and_dateset(
     data_args: DynamicDataTrainingArguments,
     model_args: ModelArguments,
     training_args: DynamicTrainingArguments,
@@ -70,18 +58,6 @@ def evaluate(
     # Work with some arguments
     if "prompt" in model_args.few_shot_type:
         data_args.prompt = True
-
-    # if training_args.no_train:
-    #     training_args.do_train = False
-    # if training_args.no_predict:
-    #     training_args.do_predict = False
-
-    # # Setup logging
-    # logging.basicConfig(
-    #     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
-    #     datefmt="%m/%d/%Y %H:%M:%S",
-    #     level=logging.INFO if training_args.local_rank in [-1, 0] else logging.WARN,
-    # )
 
     # TODO: Hacky mapping creation. Refactor this in the future.
     #  Currently gets replace if mapping_id and mapping_path is set.
@@ -112,10 +88,7 @@ def evaluate(
                     prompt_list.append((template, mapping))
 
             data_args.template, data_args.mapping = prompt_list[data_args.prompt_id]
-            # logger.info(
-            #     "Specify load the %d-th prompt: %s | %s"
-            #     % (data_args.prompt_id, data_args.template, data_args.mapping)
-            # )
+
         else:
             if data_args.template_path is not None:
                 with open(data_args.template_path) as f:
@@ -130,19 +103,11 @@ def evaluate(
                     data_args.template_list = data_args.template_list[
                         : data_args.top_n_template
                     ]
-                # logger.info(
-                #     "Load top-%d templates from %s"
-                #     % (len(data_args.template_list), data_args.template_path)
-                # )
 
                 # ... or load i-th template
                 if data_args.template_id is not None:
                     data_args.template = data_args.template_list[data_args.template_id]
                     data_args.template_list = None
-                    # logger.info(
-                    #     "Specify load the %d-th template: %s"
-                    #     % (data_args.template_id, data_args.template)
-                    # )
 
             if data_args.mapping_path is not None:
                 assert (
@@ -155,22 +120,9 @@ def evaluate(
                         mapping_list.append(line)
 
                 data_args.mapping = mapping_list[data_args.mapping_id]
-                # logger.info(
-                #     "Specify using the %d-th mapping: %s"
-                #     % (data_args.mapping_id, data_args.mapping)
-                # )
-
-    # # Check save path
-    # logger.info("Training/evaluation parameters %s", training_args)
 
     try:
         num_labels = num_labels_mapping[data_args.task_name]
-        # output_mode = output_modes_mapping[data_args.task_name]
-        # logger.info(
-        #     "Task name: {}, number of labels: {}, output mode: {}".format(
-        #         data_args.task_name, num_labels, output_mode
-        #     )
-        # )
     except KeyError:
         raise ValueError("Task not found: %s" % (data_args.task_name))
 
@@ -178,9 +130,6 @@ def evaluate(
     if data_args.auto_demo and model_args.few_shot_type == "prompt-demo":
         # GPT-3's in-context learning
         if data_args.gpt3_in_context_head or data_args.gpt3_in_context_tail:
-            # logger.info(
-            #     "Automatically convert the template to GPT-3's in-context learning."
-            # )
             assert data_args.template_list is None
 
             old_template = data_args.template
@@ -259,7 +208,6 @@ def evaluate(
                         "*mask*", "*label_{}*".format(label_id)
                     )
                     new_template = new_template + sub_template
-                # logger.info("| {} => {}".format(data_args.template, new_template))
                 data_args.template = new_template
 
     # Create config
@@ -318,7 +266,7 @@ def evaluate(
         )
 
     print(f" *** eval dataset sizes: {len(eval_dataset)}")
-
+    pdb.set_trace()
     model = model_fn.from_pretrained(
         model_args.model_name_or_path,
         from_tf=False,
@@ -349,43 +297,26 @@ def evaluate(
     model.data_args = data_args
     model.tokenizer = tokenizer
 
-    # Reconstruct the parameters using the model constitution
-    reconstruct_weight(model_storage, model, model_id, model_constitution)
+    return model, eval_dataset
 
-    # Build metric
-    def build_compute_metrics_fn(task_name: str) -> Callable[[EvalPrediction], Dict]:
-        def compute_metrics_fn(p: EvalPrediction):
-            # Note: the eval dataloader is sequential, so the examples are in order.
-            # We average the logits over each sample for using demonstrations.
-            predictions = p.predictions
-            num_logits = predictions.shape[-1]
-            # print(f"predictions shape: {predictions.shape}")
-            logits = predictions.reshape([eval_dataset.num_sample, -1, num_logits])
-            logits = logits.mean(axis=0)
 
-            if num_logits == 1:
-                preds = np.squeeze(logits)
-            else:
-                preds = np.argmax(logits, axis=1)
-
-            # Just for sanity, assert label ids are the same.
-            label_ids = p.label_ids.reshape([eval_dataset.num_sample, -1])
-            label_ids_avg = label_ids.mean(axis=0)
-            label_ids_avg = label_ids_avg.astype(p.label_ids.dtype)
-            assert (label_ids_avg - label_ids[0]).mean() < 1e-2
-            label_ids = label_ids[0]
-
-            return compute_metrics_mapping[task_name](task_name, preds, label_ids)
-
-        return compute_metrics_fn
-
-    # Initialize our Trainer
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        eval_dataset=eval_dataset,
-        compute_metrics=build_compute_metrics_fn(data_args.task_name),
+def magnitute_sensitivity():
+    model_args, data_args, training_args = parse_args()
+    # Get the model and dataset
+    model, eval_dataset = get_model_and_dateset(
+        data_args,
+        model_args,
+        training_args,
     )
-    metrics = trainer.evaluate()
-    print("*" * 20)
-    return metrics["eval_acc"]
+
+
+def fisher_information_sensitity():
+    pass
+
+
+def wanda_sensitivity():
+    pass
+
+
+if __name__ == "__main__":
+    magnitute_sensitivity()

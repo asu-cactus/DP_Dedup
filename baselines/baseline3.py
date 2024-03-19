@@ -2,7 +2,7 @@ import pdb
 import os
 from collections import defaultdict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 
 from utils.parse_args import parse_args
@@ -18,9 +18,9 @@ def run(sort_by_magnitude=True):
     and then deduplcaite higher budget model (also allowing for self deduplication).
     """
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args)
+    models_info = load_models_info()
     model_paths = [info["model_path"] for info in models_info]
-    model_storage = get_blocks(model_paths=model_paths, npz_filename="model_storage")
+    model_storage = get_blocks(model_paths=model_paths)
 
     model_range_start = model_storage["model_range"][0]
     model_range_end = model_storage["model_range"][1]
@@ -108,7 +108,7 @@ def deduplicate_blocks(
             )
         interate_seq = interate_seq[np.argsort(block_magnitude)]
 
-    search_range = model_storage["search_range"]
+    # search_range = model_storage["search_range"]
     for i in interate_seq:
         block_2b_replaced = model_storage["blocks"][i]
         # Sort by some metrics: l1, l2, cosine
@@ -123,14 +123,14 @@ def deduplicate_blocks(
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
 
-        # This part is just for experiment. Will not be used in the final version.
-        if model_id == 0:
-            diff[0 : search_range[i, 0]] = np.inf
-            diff[search_range[i, 1] :] = np.inf
-        else:
-            diff[0 : search_range[i - 833, 0]] = np.inf
-            diff[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
-            diff[search_range[i - 833, 3] :] = np.inf
+        # # This part is just for experiment. Will not be used in the final version.
+        # if model_id == 0:
+        #     diff[0 : search_range[i, 0]] = np.inf
+        #     diff[search_range[i, 1] :] = np.inf
+        # else:
+        #     diff[0 : search_range[i - 833, 0]] = np.inf
+        #     diff[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
+        #     diff[search_range[i - 833, 3] :] = np.inf
 
         ind = diff.argsort()
         for j in ind:

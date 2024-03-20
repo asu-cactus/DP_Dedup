@@ -1,6 +1,10 @@
 import pdb
 
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
+from torch import nn
+import torch.nn.functional as F
 from transformers import (
     AutoConfig,
     AutoModelForSequenceClassification,
@@ -9,9 +13,14 @@ from transformers import (
 )
 from transformers import GlueDataset
 
-from utils.parse_args import parse_args
-from utils.blocker import block_model_1d
+from utils.blocker import block_model_1d, BLOCKSIZE
 from utils import load_models_info
+from utils.parse_args import (
+    parse_args,
+    ModelArguments,
+    DynamicDataTrainingArguments,
+    DynamicTrainingArguments,
+)
 from text_task_utils.dataset import FewShotDataset
 from text_task_utils.models import (
     BertForPromptFinetuning,
@@ -26,13 +35,15 @@ from text_task_utils.processors import (
     compute_metrics_mapping,
     bound_mapping,
 )
-
-from utils.parse_args import (
-    ModelArguments,
-    DynamicDataTrainingArguments,
-    DynamicTrainingArguments,
-)
 from text_task_utils import common
+
+import json
+
+
+def load_final_constitution(exp_name: str = "l1_exp"):
+    with open(f"final_constitution/{exp_name}.json") as f:
+        constitution = json.load(f)
+    return constitution
 
 
 def get_model_and_dateset(
@@ -266,7 +277,7 @@ def get_model_and_dateset(
         )
 
     print(f" *** eval dataset sizes: {len(eval_dataset)}")
-    pdb.set_trace()
+
     model = model_fn.from_pretrained(
         model_args.model_name_or_path,
         from_tf=False,
@@ -300,23 +311,289 @@ def get_model_and_dateset(
     return model, eval_dataset
 
 
-def magnitute_sensitivity():
+def get_sens_insens_blocks(constitution, start_idx):
+    sensitive_blocks = []
+    insensitive_blocks = []
+    for i, block in enumerate(constitution):
+        if block == i + start_idx:
+            sensitive_blocks.append(i)
+        else:
+            insensitive_blocks.append(i)
+    return sensitive_blocks, insensitive_blocks
+
+
+def make_boxplot(blocks, constitution, model_id, fig_name):
+    assert blocks.shape[0] == len(constitution)
+    start_idx = 0 if model_id == 0 else 833
+    start_idx += 833 - len(constitution)
+    sensitive_blocks, insensitive_blocks = get_sens_insens_blocks(
+        constitution, start_idx
+    )
+    print(f"Number of sensitive blocks: {len(sensitive_blocks)}")
+    print(f"Number of insensitive blocks: {len(insensitive_blocks)}")
+
+    # Compute l1 norm for each block, blocks shape: (n_all_blocks, BLOCKSIZE)
+    l1_norms = np.linalg.norm(blocks, ord=1, axis=1)
+    sens_l1 = l1_norms[sensitive_blocks]
+    insens_l1 = l1_norms[insensitive_blocks]
+
+    # Compute l2 norm for each block
+    l2_norms = np.linalg.norm(blocks, ord=2, axis=1)
+    sens_l2 = l2_norms[sensitive_blocks]
+    insens_l2 = l2_norms[insensitive_blocks]
+
+    # Compute l-inf norm for each block
+    l_inf_norms = np.linalg.norm(blocks, ord=np.inf, axis=1)
+    sen_inf = l_inf_norms[sensitive_blocks]
+    insen_inf = l_inf_norms[insensitive_blocks]
+
+    # Compute 3rd quartile for each block
+    sens_3rd_quartile = np.percentile(blocks, 75, axis=1)
+    sen_3rd = sens_3rd_quartile[sensitive_blocks]
+    insen_3rd = sens_3rd_quartile[insensitive_blocks]
+
+    # Plot boxplot
+    fig, ax = plt.subplots(1, 4, figsize=(16, 10))
+    ax[0].boxplot([sens_l1, insens_l1], labels=["Sensitive", "Insensitive"], widths=0.8)
+    ax[0].set_title("L1 Norm")
+    ax[1].boxplot([sens_l2, insens_l2], labels=["Sensitive", "Insensitive"], widths=0.8)
+    ax[1].set_title("L2 Norm")
+    ax[2].boxplot([sen_inf, insen_inf], labels=["Sensitive", "Insensitive"], widths=0.8)
+    ax[2].set_title("L-inf Norm")
+    ax[3].boxplot([sen_3rd, insen_3rd], labels=["Sensitive", "Insensitive"], widths=0.8)
+    ax[3].set_title("3rd Quartile")
+    plt.savefig(fig_name, bbox_inches="tight")
+
+
+def find_layers(module, layers=[nn.Linear], name=""):
+    """
+    Recursively find the layers of a certain type in a module.
+
+    Args:
+        module (nn.Module): PyTorch module.
+        layers (list): List of layer types to find.
+        name (str): Name of the module.
+
+    Returns:
+        dict: Dictionary of layers of the given type(s) within the module.
+    """
+    if type(module) in layers:
+        return {name: module}
+    res = {}
+    for name1, child in module.named_children():
+        res.update(
+            find_layers(
+                child, layers=layers, name=name + "." + name1 if name != "" else name1
+            )
+        )
+    return res
+
+
+# Define WrappedGPT class
+class WrappedGPT:
+    """
+    This class wraps a GPT layer for specific operations.
+    """
+
+    def __init__(self, layer, layer_id=0, layer_name="none"):
+        self.layer = layer
+        self.dev = self.layer.weight.device
+        self.rows = layer.weight.data.shape[0]
+        self.columns = layer.weight.data.shape[1]
+
+        self.scaler_row = torch.zeros((self.columns), device=self.dev)
+        self.nsamples = 0
+
+        self.layer_id = layer_id
+        self.layer_name = layer_name
+
+    def add_batch(self, inp, out):
+        if len(inp.shape) == 2:
+            inp = inp.unsqueeze(0)
+        tmp = inp.shape[0]
+        if isinstance(self.layer, nn.Linear):
+            if len(inp.shape) == 3:
+                inp = inp.reshape((-1, inp.shape[-1]))
+            inp = inp.t()
+
+        self.scaler_row *= self.nsamples / (self.nsamples + tmp)
+        self.nsamples += tmp
+
+        inp = inp.type(torch.float32)
+        self.scaler_row += torch.norm(inp, p=2, dim=1) ** 2 / self.nsamples
+
+
+def get_sensitivity(
+    measure: str,
+    exp_name: str,
+    model_id: int,
+    sample_size: int = None,
+    batch_size: int = 16,
+):
+    l1_exp = load_final_constitution()
+    constitution = l1_exp[exp_name][str(model_id)]
+    exps = exp_name.split("-")
+    exp = exps[model_id]
+    taskname, eps = exp.split("_")
+    taskname = "sst-2" if taskname == "sst" else taskname
+
     model_args, data_args, training_args = parse_args()
+    data_args.task_name = taskname
+    model_args.model_name_or_path = f"../models/base-{taskname}-eps{eps}/"
     # Get the model and dataset
-    model, eval_dataset = get_model_and_dateset(
+    model, dataset = get_model_and_dateset(
         data_args,
         model_args,
         training_args,
     )
 
+    if measure == "magnitude":
+        blocks = magnitute_sensitivity(model)
+    elif measure == "fisher":
+        blocks = fisher_sensitity(model, dataset, sample_size, batch_size)
+    elif measure == "wanda":
+        blocks = wanda_sensitivity(model, dataset)
+        # First three layers aren't linear layers thus not used in Wanda method
+        constitution = constitution[-blocks.shape[0] :]
+    else:
+        raise ValueError(f"Unknown sensitivity measure: {measure}")
 
-def fisher_information_sensitity():
-    pass
+    # Make a box plot
+    self_other = "self" if model_id == 0 else "other"
+    fig_name = f"plots/sensitivity/{measure}_{eps}_{self_other}.png"
+    make_boxplot(blocks, constitution, model_id, fig_name)
 
 
-def wanda_sensitivity():
-    pass
+def magnitute_sensitivity(model):
+    model_storage = block_model_1d(model)
+    blocks = model_storage["blocks"]
+    return blocks
+
+
+def fisher_sensitity(model, dataset, sample_size, batch_size):
+    model.eval()
+    model.cuda()
+
+    if sample_size is None:
+        sample_size = len(dataset)
+
+    for start_id in range(0, sample_size, batch_size):
+        end_idx = min(start_id + batch_size, sample_size)
+
+        input_ids = torch.tensor(
+            [[dataset[i].input_ids for i in range(start_id, end_idx)]], dtype=torch.long
+        )
+        input_ids = input_ids.squeeze().cuda()
+
+        attention_mask = torch.tensor(
+            [[dataset[i].attention_mask for i in range(start_id, end_idx)]],
+            dtype=torch.long,
+        )
+        attention_mask = attention_mask.squeeze().cuda()
+
+        mask_pos = torch.tensor(
+            [[dataset[i].mask_pos for i in range(start_id, end_idx)]], dtype=torch.long
+        )
+        mask_pos = mask_pos.squeeze().cuda()
+
+        labels = torch.tensor(
+            [dataset[i].label for i in range(start_id, end_idx)], dtype=torch.long
+        )
+        labels = labels.unsqueeze(1).cuda()
+
+        # Get logits
+        logits = model(input_ids, attention_mask, mask_pos)[0]
+        probs = F.softmax(logits, dim=1)
+        logprobs = F.log_softmax(logits, dim=1)
+
+        probs = probs.gather(1, labels).squeeze()
+        logprobs = logprobs.gather(1, labels).squeeze()
+
+        # Initialize Fisher information matrix
+        fim = {}
+        no_grad_params = {}
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                fim[name] = torch.zeros_like(param, device="cpu")
+            else:
+                no_grad_params[name] = param
+        assert len(no_grad_params) == 0, "There are some parameters without grad."
+
+        # Compute Fisher information
+        for logprob, prob in zip(logprobs, probs):
+            model.zero_grad()
+            torch.autograd.backward(logprob, retain_graph=True)
+            for name, param in model.named_parameters():
+                if param.requires_grad:
+                    fim[name] += (param.grad.square() * prob).detach().cpu()
+
+    fim = {k: grad2 / sample_size for k, grad2 in fim.items()}
+
+    # Block the Fisher information corresponding to each parameter
+    blocks = block_model_1d(fim)["blocks"]
+
+    return blocks
+
+
+@torch.no_grad()
+def wanda_sensitivity(model, dataset):
+    layer_names = []
+    for name, param in model.named_parameters():
+        layer_names.append(name)
+
+    model.eval()
+    model.cuda()
+
+    batch_size = len(dataset)
+    # dataset_len = len(dataset)
+    input_ids = torch.tensor(
+        [[dataset[i].input_ids for i in range(batch_size)]], dtype=torch.long
+    )
+    input_ids = input_ids.squeeze().cuda()
+
+    attention_mask = torch.tensor(
+        [[dataset[i].attention_mask for i in range(batch_size)]], dtype=torch.long
+    )
+    attention_mask = attention_mask.squeeze().cuda()
+
+    mask_pos = torch.tensor(
+        [[dataset[i].mask_pos for i in range(batch_size)]], dtype=torch.long
+    )
+    mask_pos = mask_pos.squeeze().cuda()
+
+    # Wanda method
+    subset = find_layers(model)
+    wrapped_layers = {}
+    for name in subset:
+        wrapped_layers[name] = WrappedGPT(subset[name])
+
+    def add_batch(name):
+        def tmp(_, inp, out):
+            wrapped_layers[name].add_batch(inp[0].data, out.data)
+
+        return tmp
+
+    handles = []
+    for name in wrapped_layers:
+        handles.append(subset[name].register_forward_hook(add_batch(name)))
+    model(input_ids, attention_mask, mask_pos)
+    for h in handles:
+        h.remove()
+
+    wanda_importance = {}
+    for name in subset:
+        W_metric = torch.abs(subset[name].weight.data) * torch.sqrt(
+            wrapped_layers[name].scaler_row.reshape((1, -1))
+        )
+        wanda_importance[name] = W_metric.cpu()
+
+    blocks = block_model_1d(wanda_importance)["blocks"]
+    torch.cuda.empty_cache()
+    return blocks
 
 
 if __name__ == "__main__":
-    magnitute_sensitivity()
+    for measure in ["magnitude", "fisher", "wanda"]:
+        for exp in ["sst_4-sst_11", "sst_7-sst_8", "sst_11-sst_4"]:
+            for model_id in [0, 1]:
+                get_sensitivity(measure, exp, model_id)

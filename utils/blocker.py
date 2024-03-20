@@ -4,7 +4,6 @@ import torch
 
 from text_task_utils.models import RobertaForPromptFinetuning
 
-from pathlib import Path
 import math
 import os
 import pdb
@@ -12,10 +11,9 @@ import pdb
 BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
 
 
-def block_model_1d(model):  # PyTorch model
+def block_model_1d(model_or_paramdict):  # PyTorch model
     """
     Partition the model weights into blocks with given block size.
-    TODO: try flatten the weights to avoid padded wasted space.
     """
 
     # # DP-trained models have large variance that depend on the amount of noise added.
@@ -25,14 +23,16 @@ def block_model_1d(model):  # PyTorch model
     # Start blocking
     bias_dict = {}
     blocks = []
-    # n_weights = 0
 
-    for i, params in enumerate(model.parameters()):
-        # n_weights += 1
+    if isinstance(model_or_paramdict, dict):
+        iterator = model_or_paramdict.values()
+    else:
+        iterator = model_or_paramdict.parameters()
+    for i, params in enumerate(iterator):
         params.requires_grad = False
         # No deduplicating 1-d vectors (mostly bias)
-        # if params.dim() == 1 or params.squeeze().dim() == 1:
-        if params.dim() == 1:
+        if params.dim() == 1 or params.squeeze().dim() == 1:
+            # if params.dim() == 1:
             bias_dict[i] = params.numpy()
             continue
 
@@ -72,7 +72,6 @@ def block_model_1d(model):  # PyTorch model
         # "scale_factors": np.array(scale_factors, dtype=np.float32),
         "blocks": np.concatenate(blocks, axis=0),
         "bias_dict": bias_dict,  # list of numpy array
-        # "n_weights": n_weights,  # int
         # "search_range": search_range,  # numpy array of shape (n_all_blocks, 2)
     }
 
@@ -153,8 +152,8 @@ def reconstruct_weight(model_storage, model, model_id, model_constitution: list[
 
     for _, params in enumerate(model.parameters()):
         params.requires_grad = False
-        # if params.dim() == 1 or params.squeeze().dim() == 1:
-        if params.dim() == 1:
+        if params.dim() == 1 or params.squeeze().dim() == 1:
+            # if params.dim() == 1:
             # For now, assume the models are loaded from original storage
             # So no need to reconstruct bias from model_storage
             # TODO: load from model_storage

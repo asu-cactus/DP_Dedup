@@ -1,6 +1,7 @@
 baseline/
 block_storage/
 dataset/
+plots/
 outputs*/
 __pycache__/
 
@@ -10,4 +11,3 @@ test_eval.py
 .DS_Store
 *.out
 *.pkl
-*.png

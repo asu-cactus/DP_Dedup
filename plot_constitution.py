@@ -8,7 +8,7 @@ import seaborn as sns
 import pandas as pd
 from matplotlib import pyplot as plt
 
-from final_constitution_quantile import model0, model1
+from final_constitution.sst4_sst11_l1 import model0, model1
 from utils.parse_args import parse_args
 from utils.blocker import get_blocks
 from utils import load_models_info
@@ -111,11 +111,9 @@ def plot_constitution_heatmap():
 def test_evaluate():
     model_args, data_args, training_args = parse_args()
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
-    models_info = load_models_info(model_args)
+    models_info = load_models_info()
     model_paths = [info["model_path"] for info in models_info]
-    models_storage = get_blocks(
-        model_paths=model_paths, npz_filename="model_storage_4_11"
-    )
+    models_storage = get_blocks(model_paths=model_paths)
     data_args.task_name = models_info[0]["task_name"]
     model_args.model_name_or_path = models_info[0]["model_path"]
     acc = evaluate(

@@ -4,15 +4,15 @@
         "task_name": "sst-2",
         "acc_drop_threshold": 0.03,
         "original_acc": 0.90,
-        "budget": 4.0,
-        "allowed_budget": 4.0
+        "budget": 4,
+        "allowed_budget": 4
     },
     "1": {
         "model_path": "../models/base-sst-2-eps11/",
         "task_name": "sst-2",
         "acc_drop_threshold": 0.05,
         "original_acc": 0.92,
-        "budget": 11.0,
-        "allowed_budget": 11.0
+        "budget": 11,
+        "allowed_budget": 11
     }
 }

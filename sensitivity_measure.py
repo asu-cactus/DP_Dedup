@@ -427,14 +427,29 @@ def get_sensitivity(
     measure: str,
     exp_name: str,
     model_id: int,
-    sample_size: int = None,
+    skip_layers: int = 3,
     batch_size: int = 16,
+    sample_size: int = None,
 ):
     l1_exp = load_final_constitution()
     constitution = l1_exp[exp_name][str(model_id)]
     exps = exp_name.split("-")
     exp = exps[model_id]
     taskname, eps = exp.split("_")
+
+    blocks = get_block_sensitivity(taskname, measure, eps, skip_layers, batch_size)
+    # First three layers aren't linear layers thus not used in Wanda method
+    constitution = constitution[-blocks.shape[0] :]
+
+    # Make a box plot
+    self_other = "self" if model_id == 0 else "other"
+    fig_name = f"plots/sensitivity/{measure}_{eps}_{self_other}.png"
+    make_boxplot(blocks, constitution, model_id, fig_name)
+
+
+def get_block_sensitivity(
+    taskname, measure, eps, skip_embeds=True, return_n_embed_blocks=False
+):
     taskname = "sst-2" if taskname == "sst" else taskname
 
     model_args, data_args, training_args = parse_args()
@@ -446,31 +461,34 @@ def get_sensitivity(
         model_args,
         training_args,
     )
-
     if measure == "magnitude":
-        blocks = magnitute_sensitivity(model)
+        blocks = magnitute_sensitivity(model, skip_embeds=skip_embeds)
     elif measure == "fisher":
-        blocks = fisher_sensitity(model, dataset, sample_size, batch_size)
+        blocks = fisher_sensitity(model, dataset, skip_embeds=skip_embeds)
     elif measure == "wanda":
         blocks = wanda_sensitivity(model, dataset)
-        # First three layers aren't linear layers thus not used in Wanda method
-        constitution = constitution[-blocks.shape[0] :]
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
 
-    # Make a box plot
-    self_other = "self" if model_id == 0 else "other"
-    fig_name = f"plots/sensitivity/{measure}_{eps}_{self_other}.png"
-    make_boxplot(blocks, constitution, model_id, fig_name)
+    if return_n_embed_blocks:
+        model.cpu()
+        embed_params = {}
+        for name, params in model.named_parameters():
+            if "embeddings" in name:
+                embed_params[name] = params
+        embed_blocks = block_model_1d(embed_params)["blocks"]
+        n_embed_blocks = embed_blocks.shape[0]
+        return blocks, n_embed_blocks
+    return blocks, None
 
 
-def magnitute_sensitivity(model):
-    model_storage = block_model_1d(model)
+def magnitute_sensitivity(model, skip_embeds=True):
+    model_storage = block_model_1d(model, skip_embeds)
     blocks = model_storage["blocks"]
     return blocks
 
 
-def fisher_sensitity(model, dataset, sample_size, batch_size):
+def fisher_sensitity(model, dataset, batch_size=16, skip_embeds=True, sample_size=None):
     model.eval()
     model.cuda()
 
@@ -530,7 +548,7 @@ def fisher_sensitity(model, dataset, sample_size, batch_size):
     fim = {k: grad2 / sample_size for k, grad2 in fim.items()}
 
     # Block the Fisher information corresponding to each parameter
-    blocks = block_model_1d(fim)["blocks"]
+    blocks = block_model_1d(fim, skip_embeds)["blocks"]
 
     return blocks
 
@@ -593,7 +611,8 @@ def wanda_sensitivity(model, dataset):
 
 
 if __name__ == "__main__":
-    for measure in ["magnitude", "fisher", "wanda"]:
+    # for measure in ["magnitude", "fisher", "wanda"]:
+    for measure in ["fisher"]:
         for exp in ["sst_4-sst_11", "sst_7-sst_8", "sst_11-sst_4"]:
             for model_id in [0, 1]:
                 get_sensitivity(measure, exp, model_id)

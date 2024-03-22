@@ -11,7 +11,7 @@ import pdb
 BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
 
 
-def block_model_1d(model_or_paramdict):  # PyTorch model
+def block_model_1d(model_or_paramdict, skip_embeds=False):
     """
     Partition the model weights into blocks with given block size.
     """
@@ -19,21 +19,22 @@ def block_model_1d(model_or_paramdict):  # PyTorch model
     # # DP-trained models have large variance that depend on the amount of noise added.
     # # We normalize weights to have unit variance and will demonormalize during reconstruction.
     # scale_factors = []
-
     # Start blocking
     bias_dict = {}
     blocks = []
 
     if isinstance(model_or_paramdict, dict):
-        iterator = model_or_paramdict.values()
+        iterator = model_or_paramdict.items()
     else:
-        iterator = model_or_paramdict.parameters()
-    for i, params in enumerate(iterator):
+        iterator = model_or_paramdict.named_parameters()
+    for i, (name, params) in enumerate(iterator):
+        if skip_embeds and "embeddings" in name:
+            continue
         params.requires_grad = False
         # No deduplicating 1-d vectors (mostly bias)
         if params.dim() == 1 or params.squeeze().dim() == 1:
             # if params.dim() == 1:
-            bias_dict[i] = params.numpy()
+            bias_dict[name] = params.numpy()
             continue
 
         # # Normalize weights

@@ -294,6 +294,10 @@ class DynamicTrainingArguments(TrainingArguments):
         default="3rd_quantile",
         metadata={"help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm]"},
     )
+    sensitivity_measure: str = field(
+        default="magnitude",
+        metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
+    )
     fanout: int = field(
         default=10,
         metadata={"help": "Fanout of the first sub-action for MCTS"},

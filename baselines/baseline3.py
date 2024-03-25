@@ -107,7 +107,7 @@ def deduplicate_blocks(
             embed_seq = interate_seq[:n_embed_blocks]
             other_seq = interate_seq[n_embed_blocks:]
             other_seq = other_seq[np.argsort(block_magnitude)]
-            interate_seq = np.concatenate((other_seq, embed_seq))
+            interate_seq = np.concatenate((embed_seq, other_seq))
         else:
             interate_seq = interate_seq[np.argsort(block_magnitude)]
 

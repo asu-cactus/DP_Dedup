@@ -427,9 +427,7 @@ def get_sensitivity(
     measure: str,
     exp_name: str,
     model_id: int,
-    skip_layers: int = 3,
-    batch_size: int = 16,
-    sample_size: int = None,
+    skip_embeds: bool = True,
 ):
     l1_exp = load_final_constitution()
     constitution = l1_exp[exp_name][str(model_id)]
@@ -437,7 +435,7 @@ def get_sensitivity(
     exp = exps[model_id]
     taskname, eps = exp.split("_")
 
-    blocks = get_block_sensitivity(taskname, measure, eps, skip_layers, batch_size)
+    blocks, _ = get_block_sensitivity(taskname, measure, eps, skip_embeds)
     # First three layers aren't linear layers thus not used in Wanda method
     constitution = constitution[-blocks.shape[0] :]
 
@@ -461,6 +459,7 @@ def get_block_sensitivity(
         model_args,
         training_args,
     )
+
     if measure == "magnitude":
         blocks = magnitute_sensitivity(model, skip_embeds=skip_embeds)
     elif measure == "fisher":
@@ -611,8 +610,9 @@ def wanda_sensitivity(model, dataset):
 
 
 if __name__ == "__main__":
-    # for measure in ["magnitude", "fisher", "wanda"]:
-    for measure in ["fisher"]:
+    skip_embeds = False
+    for measure in ["magnitude", "fisher", "wanda"]:
+        # for measure in ["fisher"]:
         for exp in ["sst_4-sst_11", "sst_7-sst_8", "sst_11-sst_4"]:
             for model_id in [0, 1]:
-                get_sensitivity(measure, exp, model_id)
+                get_sensitivity(measure, exp, model_id, skip_embeds)

@@ -6,7 +6,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 
 from utils.parse_args import parse_args
-from utils.blocker import get_blocks, block_model_1d
+from utils.blocker import get_blocks
 from utils import load_models_info
 from text_task_utils.evaluate import evaluate
 from sensitivity_measure import get_block_sensitivity
@@ -101,16 +101,23 @@ def deduplicate_blocks(
             block_magnitude = np.max(np.abs(measures), axis=1)
         elif training_args.orderby == "3rd_quantile":
             block_magnitude = np.quantile(measures, 0.75, axis=1)
+        else:
+            raise ValueError(f"Invalid orderby: {training_args.orderby}")
 
         # Because Wanda only applies to linear layers, we deduplicate them at last
+        ordered_indices = np.argsort(block_magnitude)
         if training_args.sensitivity_measure == "wanda":
             embed_seq = interate_seq[:n_embed_blocks]
             other_seq = interate_seq[n_embed_blocks:]
-            other_seq = other_seq[np.argsort(block_magnitude)]
+            other_seq = other_seq[ordered_indices]
             interate_seq = np.concatenate((embed_seq, other_seq))
         else:
-            interate_seq = interate_seq[np.argsort(block_magnitude)]
+            interate_seq = interate_seq[ordered_indices]
+        # Print the block magnitude
+        block_magnitude_list = [round(m, 6) for m in block_magnitude[ordered_indices]]
+        print(f"Block magnitude {training_args.orderby}:\n{block_magnitude_list}")
 
+    actual_distances = []
     # search_range = model_storage["search_range"]
     for i in interate_seq:
         block_2b_replaced = model_storage["blocks"][i]
@@ -139,6 +146,7 @@ def deduplicate_blocks(
         for j in ind:
             # j += model_range_start
             if j != i and j not in dedup_indices:
+                actual_distances.append(round(diff[j], 4))
                 temp_constitution = model_constitution.copy()
                 # Replace the current block with the most similar block
                 temp_constitution[i - model_range_start] = j
@@ -170,4 +178,5 @@ def deduplicate_blocks(
                 print(f"Model {model_id} block {i} -> {j} acc: {acc:.4f}")
                 print(f"Model constitution after dedup: {model_constitution}")
                 break
+    print(f"Actual distances: {actual_distances}")
     return dedup_indices, dedup_dict

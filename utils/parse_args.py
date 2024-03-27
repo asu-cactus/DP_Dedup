@@ -291,11 +291,13 @@ class DynamicTrainingArguments(TrainingArguments):
         },
     )
     orderby: str = field(
-        default="3rd_quantile",
-        metadata={"help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm]"},
+        default="l2_norm",
+        metadata={
+            "help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm, l1_norm, l_inf_norm]"
+        },
     )
     sensitivity_measure: str = field(
-        default="magnitude",
+        default="fisher",
         metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
     )
     fanout: int = field(

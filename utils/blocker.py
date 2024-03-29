@@ -5,7 +5,6 @@ import torch
 from text_task_utils.models import RobertaForPromptFinetuning
 
 import math
-import os
 import pdb
 
 BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
@@ -30,7 +29,9 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
     for i, (name, params) in enumerate(iterator):
         if skip_embeds and "embeddings" in name:
             continue
-        params.requires_grad = False
+        # params.requires_grad = False
+        params = params.detach().cpu()
+
         # No deduplicating 1-d vectors (mostly bias)
         if params.dim() == 1 or params.squeeze().dim() == 1:
             # if params.dim() == 1:
@@ -147,9 +148,19 @@ def get_blocks(
 
 def reconstruct_weight(model_storage, model, model_id, model_constitution: list[int]):
     """Reconstruct a model weights from a given model storage object."""
+    model_start_point = model_storage["model_range"][model_id]
+    blocks = model_storage["blocks"]
+    reconstruct_weight_helper(model, blocks, model_start_point, model_constitution)
+
+
+def reconstruct_weight_helper(
+    model,
+    blocks,
+    model_start_point,
+    model_constitution,
+):
     start_idx = 0
     non_bias_idx = 0
-    model_start_point = model_storage["model_range"][model_id]
 
     for _, params in enumerate(model.parameters()):
         params.requires_grad = False
@@ -171,7 +182,7 @@ def reconstruct_weight(model_storage, model, model_id, model_constitution: list[
         if not all(
             (block_id == start + i for i, block_id in enumerate(constitution_range))
         ):
-            new_weight = model_storage["blocks"][constitution_range].flatten()[:numel]
+            new_weight = blocks[constitution_range].flatten()[:numel]
             # # Scale weights
             # new_weight = (
             #     new_weight * model_storage["scale_factors"][model_id][non_bias_idx]

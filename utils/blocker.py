@@ -7,7 +7,8 @@ from text_task_utils.models import RobertaForPromptFinetuning
 import math
 import pdb
 
-BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
+# BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
+BLOCKSIZE = 589824  # 768 * 768 for base models and 1024 * 576 for large models
 
 
 def block_model_1d(model_or_paramdict, skip_embeds=False):

@@ -13,8 +13,7 @@ from transformers import (
 )
 from transformers import GlueDataset
 
-from utils.blocker import block_model_1d, BLOCKSIZE
-from utils import load_models_info
+from utils.blocker import block_model_1d
 from utils.parse_args import (
     parse_args,
     ModelArguments,
@@ -324,8 +323,8 @@ def get_sens_insens_blocks(constitution, start_idx):
 
 def make_boxplot(blocks, constitution, model_id, fig_name):
     assert blocks.shape[0] == len(constitution)
-    start_idx = 0 if model_id == 0 else 833
-    start_idx += 833 - len(constitution)
+    start_idx = 0 if model_id == 0 else 832
+    start_idx += 832 - len(constitution)
     sensitive_blocks, insensitive_blocks = get_sens_insens_blocks(
         constitution, start_idx
     )
@@ -436,6 +435,7 @@ def get_sensitivity(
     taskname, eps = exp.split("_")
 
     blocks, _ = get_block_sensitivity(taskname, measure, eps, skip_embeds)
+
     # First three layers aren't linear layers thus not used in Wanda method
     constitution = constitution[-blocks.shape[0] :]
 
@@ -466,6 +466,8 @@ def get_block_sensitivity(
         blocks = fisher_sensitity(model, dataset, skip_embeds=skip_embeds)
     elif measure == "wanda":
         blocks = wanda_sensitivity(model, dataset)
+    elif measure == "gradient":
+        blocks = gradient_sensitity(model, dataset)
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
 
@@ -609,10 +611,99 @@ def wanda_sensitivity(model, dataset):
     return blocks
 
 
+def gradient_sensitity(
+    model,
+    dataset,
+    batch_size=16,
+    skip_embeds=False,
+    sample_size=None,
+    correct_only=False,
+):
+    model.eval()
+    model.cuda()
+
+    if sample_size is None:
+        sample_size = len(dataset)
+
+    criterion = nn.CrossEntropyLoss()
+    accum_iter = np.ceil(sample_size / batch_size)
+
+    for start_id in range(0, sample_size, batch_size):
+        end_idx = min(start_id + batch_size, sample_size)
+
+        input_ids = torch.tensor(
+            [[dataset[i].input_ids for i in range(start_id, end_idx)]], dtype=torch.long
+        )
+        input_ids = input_ids.squeeze().cuda()
+
+        attention_mask = torch.tensor(
+            [[dataset[i].attention_mask for i in range(start_id, end_idx)]],
+            dtype=torch.long,
+        )
+        attention_mask = attention_mask.squeeze().cuda()
+
+        mask_pos = torch.tensor(
+            [[dataset[i].mask_pos for i in range(start_id, end_idx)]], dtype=torch.long
+        )
+        mask_pos = mask_pos.squeeze().cuda()
+
+        labels = torch.tensor(
+            [dataset[i].label for i in range(start_id, end_idx)], dtype=torch.long
+        )
+        # labels = labels.unsqueeze(1).cuda()
+        labels = labels.cuda()
+
+        # Get logits
+        logits = model(input_ids, attention_mask, mask_pos)[0]
+
+        if correct_only:
+            preds = torch.argmax(logits, dim=1)
+            mask = preds == labels
+            labels = labels[mask]
+            logits = logits[mask]
+
+        loss = criterion(logits, labels)
+        loss = loss / accum_iter
+        loss.backward()
+
+    grads = {}
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            grads[name] = param.grad
+
+    # Block the Fisher information corresponding to each parameter
+    blocks = block_model_1d(grads, skip_embeds)["blocks"]
+
+    return blocks
+
+
 if __name__ == "__main__":
-    skip_embeds = False
-    for measure in ["magnitude", "fisher", "wanda"]:
-        # for measure in ["fisher"]:
-        for exp in ["sst_4-sst_11", "sst_7-sst_8", "sst_11-sst_4"]:
-            for model_id in [0, 1]:
-                get_sensitivity(measure, exp, model_id, skip_embeds)
+    # skip_embeds = False
+    # for measure in ["magnitude", "fisher", "wanda"]:
+    #     # for measure in ["fisher"]:
+    #     for exp in ["sst_4-sst_11", "sst_7-sst_8", "sst_11-sst_4"]:
+    #         for model_id in [0, 1]:
+    #             get_sensitivity(measure, exp, model_id, skip_embeds)
+
+    exps = [("sst", 8), ("sst", 11), ("sst", 12)]
+    all_zero_counts = []
+    total_blocks = []
+    for taskname, eps in exps:
+        blocks, _ = get_block_sensitivity(taskname, "gradient", eps, False, False)
+
+        all_zeros = np.all(blocks == 0, axis=1)
+        all_zero_counts.append(np.sum(all_zeros))
+        total_blocks.append(len(all_zeros))
+        all_zero_blocks = np.nonzero(all_zeros)[0]
+        print(f"Blocks that graidents are all zeros: {all_zero_blocks}")
+
+        # all_zero_blocks = []
+        # for i, block in enumerate(blocks):
+        #     if np.all(block == 0):
+        #         all_zero_blocks.append(i + 1)
+        # print(f"Blocks that graidents are all zeros: {all_zero_blocks}")
+        # all_zero_counts.append(len(all_zero_blocks))
+        # total_blocks.append(len(blocks))
+
+    for n_all_zeros, nblocks in zip(all_zero_counts, total_blocks):
+        print(f"Number of all-zero blocks: {n_all_zeros} out of {nblocks}")

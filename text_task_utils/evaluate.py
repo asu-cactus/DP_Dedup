@@ -29,7 +29,7 @@ from text_task_utils.processors import (
     bound_mapping,
 )
 
-from utils.blocker import reconstruct_weight
+from utils.blocker import reconstruct_weight, reconstruct_weight_helper
 from utils.parse_args import (
     ModelArguments,
     DynamicDataTrainingArguments,
@@ -51,6 +51,7 @@ def evaluate(
     data_args: DynamicDataTrainingArguments,
     model_args: ModelArguments,
     training_args: DynamicTrainingArguments,
+    blocks: np.array = None,
 ):
     # Add some additional arguments to make it work
     task_name = data_args.task_name
@@ -350,7 +351,10 @@ def evaluate(
     model.tokenizer = tokenizer
 
     # Reconstruct the parameters using the model constitution
-    reconstruct_weight(model_storage, model, model_id, model_constitution)
+    if blocks is None:
+        reconstruct_weight(model_storage, model, model_id, model_constitution)
+    else:
+        reconstruct_weight_helper(model, blocks, 0, model_constitution)
 
     # Build metric
     def build_compute_metrics_fn(task_name: str) -> Callable[[EvalPrediction], Dict]:

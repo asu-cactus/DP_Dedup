@@ -17,12 +17,11 @@ def run():
     deduplicate(models_info[0])
 
 
-def deduplicate(model_info, base_model_info=None):
-    taskname, eps = model_info["task_name"], model_info["budget"]
+def deduplicate(model_info):
 
     model_args, data_args, training_args = parse_args()
-    data_args.task_name = taskname
-    model_args.model_name_or_path = f"../models/base-{taskname}-eps{eps}/"
+    data_args.task_name = model_info["task_name"]
+    model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
     model, dataset = get_model_and_dateset(
         data_args,
@@ -125,24 +124,47 @@ def predict_prediction(
 
                 param_delta = model_blocks[i] - model_blocks[j]
                 max_param_delta = np.max(np.abs(param_delta))
-                if not (grad_blockss[0][i] == 0.0).all() and max_param_delta > 0.01:
-                    print(f"{i=} {max_param_delta=}")
-                    break
 
-                # delta_too_big = False
-                # probs_copy2 = probs_copy.copy()
+                # Break if all gradients are zero
+                grad_all_zero = True
                 for k, grad_blocks in enumerate(grad_blockss):
-                    # TODO: optimize the following line because index for grad_blocks is i.
-                    prob_delta = np.dot(param_delta, grad_blocks[i])
-                    probs_copy[k] += prob_delta
-                    # if np.abs(prob_delta) > 0.00001:
-                    #     print(f"{prob_delta=}")
-                    #     delta_too_big = True
+                    if not (grad_blocks[i] == 0.0).all():
+                        grad_all_zero = False
+                        break
+
+                if not grad_all_zero:
+                    # if max_param_delta > 0.01:
+                    #     print(f"{i=} {max_param_delta=}")
                     #     break
-                    # probs_copy2[k] += prob_delta
-                # if delta_too_big:
-                #     break
-                # probs_copy = probs_copy2
+
+                    # delta_too_big = False
+                    mul_too_big = False
+                    probs_copy2 = probs_copy.copy()
+                    for k, grad_blocks in enumerate(grad_blockss):
+                        # TODO: optimize the following line because index for grad_blocks is i.
+                        # prob_delta = np.dot(param_delta, grad_blocks[i])
+                        # probs_copy[k] += prob_delta
+
+                        # Want to check np.max(param_delta * grad_blocks[i]) to see if it is too big
+                        mul = param_delta * grad_blocks[i]
+                        max_mul = np.max(mul)
+                        if max_mul > 0.00001:
+                            print(f"{max_mul=}")
+                            mul_too_big = True
+                            break
+                        probs_copy2[k] += np.sum(mul)
+
+                        # if np.abs(prob_delta) > 0.00001:
+                        #     print(f"{prob_delta=}")
+                        #     delta_too_big = True
+                        #     break
+                        # probs_copy2[k] += prob_delta
+
+                    # if delta_too_big:
+                    #     break
+                    if mul_too_big:
+                        break
+                    probs_copy = probs_copy2
 
                 if ((original_probs < 0.5) | (probs_copy > 0.5)).all():
                     dedup_indices.add(i)
@@ -152,6 +174,11 @@ def predict_prediction(
                         del dedup_dict[i]
                     probs = probs_copy
                 break
+
+            # Change only one block that the gradient is not zero
+            if not grad_all_zero:
+                break
+
         print(f"Number of deduplications: {len(dedup_indices)}")
 
         # Get the model constitution

@@ -1,9 +1,14 @@
+"""
+In version 1, candidate blocks do not include the blocks with all zero gradients.
+In this version 2, all the exisiting blocks are the candidate blocks.
+"""
+
 import os
 from collections import defaultdict
 from dataclasses import dataclass
 import pdb
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from sensitivity_measure import get_model_and_dateset, gradient_sensitity
 from utils import load_models_info
@@ -52,6 +57,7 @@ def deduplicate_blocks(
     all_zeros = np.all(grad_blocks == 0, axis=1)
     non_all_zeros = ~all_zeros
     nonzero_indices = np.nonzero(non_all_zeros)[0]
+    nonzero_indices_set = set(nonzero_indices)
 
     # Get the blocks to search
     weight_blocks = original_wblocks[non_all_zeros]
@@ -59,10 +65,14 @@ def deduplicate_blocks(
     assert len(nonzero_indices) == len(weight_blocks)
 
     if model_id == 0:
-        candidate_blocks = weight_blocks
+        # candidate_blocks = weight_blocks
+        candidate_blocks = original_wblocks
     else:
+        # candidate_blocks = np.concatenate(
+        #     [weight_blocks, base_model_info.blocks], axis=0
+        # )
         candidate_blocks = np.concatenate(
-            [weight_blocks, base_model_info.blocks], axis=0
+            [original_wblocks, base_model_info.blocks], axis=0
         )
 
     n_curr_blocks = len(grad_blocks)
@@ -84,30 +94,34 @@ def deduplicate_blocks(
 
     # Start deduplication
     dedup_indices = set()
+    todedup_indices = set()
     blocks = (
         original_wblocks
         if model_id == 0
         else np.concatenate([original_wblocks, base_model_info.blocks], axis=0)
     )
     model_constitution = list(range(len(original_wblocks)))
+    n_eval = 0
     for row, col in zip(row_indices, col_indices):
+        A_value = A[row, col]
+        row = nonzero_indices[row]
         if row == col or col in dedup_indices or row in dedup_indices:
             continue
+        n_eval += 1
 
-        row_idx = nonzero_indices[row]
-        if col < n_curr_blocks:
-            col_idx = nonzero_indices[col]
-        else:
-            col_idx = col + len(original_wblocks) - n_curr_blocks
         temp_constitution = model_constitution.copy()
-        temp_constitution[row_idx] = col_idx
+        temp_constitution[row] = col
         acc = evaluate(
             None, None, temp_constitution, data_args, model_args, training_args, blocks
         )
         if acc >= acc_threshold:
             model_constitution = temp_constitution
             dedup_indices.add(row)
-            dedup_indices.add(col)
+            if col in nonzero_indices_set:
+                dedup_indices.add(col)
+            elif col < len(original_wblocks):
+                # These are blocks that the gradients are all zeros.
+                todedup_indices.add(col)
 
         # Print information
         printed_constitution = model_constitution
@@ -115,16 +129,18 @@ def deduplicate_blocks(
             printed_constitution = [
                 i + base_model_info.n_original_blocks for i in model_constitution
             ]
-            row_idx += base_model_info.n_original_blocks
-            if col >= n_curr_blocks:
-                col_idx = base_model_info.block_original_pos[col - n_curr_blocks]
+            row += base_model_info.n_original_blocks
+            if col >= len(original_wblocks):
+                col = base_model_info.block_original_pos[col - len(original_wblocks)]
             else:
-                col_idx += base_model_info.n_original_blocks
+                col += base_model_info.n_original_blocks
         print(
-            f"Model {model_id} block {row_idx} -> {col_idx} acc: {acc:.4f}, A value: {A[row, col]}"
+            f"Model {model_id} block {row} -> {col} acc: {acc:.4f}, A value: {A_value:.4f}"
         )
         print(f"Model constitution after dedup: {printed_constitution}")
 
+        if n_eval % 100 == 0:
+            print(f"Use n gradient zero blocks: {len(todedup_indices)}")
     # Return model info
     block_original_pos = sorted(list(set(model_constitution)))
     blocks = original_wblocks[block_original_pos]

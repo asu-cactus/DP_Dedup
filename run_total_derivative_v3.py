@@ -6,11 +6,10 @@ order the sequence of blocks to be deduplicated.
 """
 
 import os
-from collections import defaultdict
 from dataclasses import dataclass
 import pdb
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from sensitivity_measure import get_model_and_dateset, gradient_sensitity
 from utils import load_models_info
@@ -35,7 +34,7 @@ def deduplicate_blocks(
     training_args,
     models_info,
     base_model_info=None,
-    distance_metric="l2",
+    distance_metric="l1",
 ):
 
     # Set parameters
@@ -121,17 +120,21 @@ def deduplicate_blocks(
             continue
         n_eval += 1
 
-        temp_constitution = model_constitution.copy()
-        temp_constitution[be_replaced] = to_replace
+        # temp_constitution = model_constitution.copy()
+        # temp_constitution[be_replaced] = to_replace
+        temp_constitution = [
+            to_replace if b == be_replaced else b for b in model_constitution
+        ]
         acc = evaluate(
             None, None, temp_constitution, data_args, model_args, training_args, blocks
         )
         if acc >= acc_threshold:
             model_constitution = temp_constitution
             dedup_indices.add(be_replaced)
-            if to_replace in nonzero_indices_set:
-                dedup_indices.add(to_replace)
-            elif to_replace < len(original_wblocks):
+            if (
+                to_replace < len(original_wblocks)
+                and to_replace not in nonzero_indices_set
+            ):
                 # These are blocks that the gradients are all zeros.
                 used_allzerograd_indices.add(to_replace)
 

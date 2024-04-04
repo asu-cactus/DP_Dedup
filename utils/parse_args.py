@@ -285,7 +285,7 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For Heuristic MC-RAVE
     mcts_mode: str = field(
-        default="warm_start_naive",
+        default="dyn_prune_mcts",
         metadata={
             "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
         },
@@ -301,7 +301,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
     )
     fanout: int = field(
-        default=10,
+        default=100,
         metadata={"help": "Fanout of the first sub-action for MCTS"},
     )
     eval_every: int = field(

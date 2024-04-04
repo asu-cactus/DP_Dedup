@@ -18,7 +18,7 @@ from utils import load_models_info
 def main():
     model_args, data_args, training_args = parse_args()
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
-    models_info = load_models_info(model_args)
+    models_info = load_models_info()
     model_paths = [info["model_path"] for info in models_info]
     models_storage = get_blocks(model_paths=model_paths)
     if training_args.mcts_mode == "uct_mcts":

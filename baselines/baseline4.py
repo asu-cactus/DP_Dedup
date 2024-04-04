@@ -1,8 +1,7 @@
 import pdb
 import os
-from collections import defaultdict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import numpy as np
 
 from utils.parse_args import parse_args
@@ -14,7 +13,7 @@ from sensitivity_measure import get_block_sensitivity
 
 def run():
     """
-    This is a hard-coded version of the baseline3 method:
+    This is a hard-coded version of the baseline4 method:
     Self deduplicate lower budget model, and used as a reference,
     and then deduplcaite higher budget model (also allowing for self deduplication).
     """
@@ -24,28 +23,28 @@ def run():
     model_storage = get_blocks(model_paths=model_paths)
 
     dedup_indices = set()
-    dedup_dict = defaultdict(list)
+    # dedup_dict = defaultdict(list)
 
-    dedup_indices, dedup_dict = deduplicate_blocks(
+    dedup_indices = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         models_info,
         dedup_indices,
-        dedup_dict,
+        # dedup_dict,
         0,
     )
     print(f"Number of changes: {len(dedup_indices)}")
 
-    dedup_indices, _ = deduplicate_blocks(
+    dedup_indices = deduplicate_blocks(
         model_args,
         data_args,
         training_args,
         model_storage,
         models_info,
         dedup_indices,
-        dedup_dict,
+        # dedup_dict,
         1,
     )
     print(f"Number of changes: {len(dedup_indices)}")
@@ -58,7 +57,7 @@ def deduplicate_blocks(
     model_storage,
     models_info,
     dedup_indices,
-    dedup_dict,
+    # dedup_dict,
     model_id,
     sort_by_magnitude=True,
     distance_metric="l1",
@@ -94,18 +93,18 @@ def deduplicate_blocks(
         # measures = model_storage["blocks"][model_range_start:model_range_end]
 
         if training_args.orderby == "l1_norm":
-            block_magnitude = np.sum(np.abs(measures), axis=1)
+            block_sens = np.sum(np.abs(measures), axis=1)
         elif training_args.orderby == "l2_norm":
-            block_magnitude = np.linalg.norm(measures, axis=1)
+            block_sens = np.linalg.norm(measures, axis=1)
         elif training_args.orderby == "l_inf_norm":
-            block_magnitude = np.max(np.abs(measures), axis=1)
+            block_sens = np.max(np.abs(measures), axis=1)
         elif training_args.orderby == "3rd_quantile":
-            block_magnitude = np.quantile(measures, 0.75, axis=1)
+            block_sens = np.quantile(measures, 0.75, axis=1)
         else:
             raise ValueError(f"Invalid orderby: {training_args.orderby}")
 
         # Because Wanda only applies to linear layers, we deduplicate them at last
-        ordered_indices = np.argsort(block_magnitude)
+        ordered_indices = np.argsort(block_sens)
         if training_args.sensitivity_measure == "wanda":
             embed_seq = interate_seq[:n_embed_blocks]
             other_seq = interate_seq[n_embed_blocks:]
@@ -114,20 +113,23 @@ def deduplicate_blocks(
         else:
             interate_seq = interate_seq[ordered_indices]
         # Print the block magnitude
-        block_magnitude_list = [round(m, 6) for m in block_magnitude[ordered_indices]]
-        print(f"Block magnitude {training_args.orderby}:\n{block_magnitude_list}")
+        ordered_sensitivity = [round(m, 6) for m in block_sens[ordered_indices]]
+        print(f"Block senstivity {training_args.orderby}:\n{ordered_sensitivity}")
+        measures = measures[ordered_indices]
 
-    actual_distances = []
+    avg_distances = []
+    total_diffs = []
     # search_range = model_storage["search_range"]
-    for i in interate_seq:
+    for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
         block_2b_replaced = model_storage["blocks"][i]
+        diff = candidate_blocks - block_2b_replaced
         # Sort by some metrics: l1, l2, cosine
         if distance_metric == "l1":
-            diff = np.sum(np.abs(candidate_blocks - block_2b_replaced), axis=1)
+            dist = np.sum(np.abs(diff), axis=1)
         elif distance_metric == "l2":
-            diff = np.linalg.norm(candidate_blocks - block_2b_replaced, axis=1)
+            dist = np.linalg.norm(diff, axis=1)
         elif distance_metric == "cosine":
-            diff = np.dot(candidate_blocks, block_2b_replaced) / (
+            dist = np.dot(candidate_blocks, block_2b_replaced) / (
                 np.linalg.norm(candidate_blocks) * np.linalg.norm(block_2b_replaced)
             )
         else:
@@ -135,48 +137,41 @@ def deduplicate_blocks(
 
         # # This part is just for experiment. Will not be used in the final version.
         # if model_id == 0:
-        #     diff[0 : search_range[i, 0]] = np.inf
-        #     diff[search_range[i, 1] :] = np.inf
+        #     dist[0 : search_range[i, 0]] = np.inf
+        #     dist[search_range[i, 1] :] = np.inf
         # else:
-        #     diff[0 : search_range[i - 833, 0]] = np.inf
-        #     diff[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
-        #     diff[search_range[i - 833, 3] :] = np.inf
+        #     dist[0 : search_range[i - 833, 0]] = np.inf
+        #     dist[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
+        #     dist[search_range[i - 833, 3] :] = np.inf
 
-        ind = diff.argsort()
+        ind = dist.argsort()
         for j in ind:
-            # j += model_range_start
-            if j != i and j not in dedup_indices:
-                actual_distances.append(round(diff[j], 4))
-                temp_constitution = model_constitution.copy()
-                # Replace the current block with the most similar block
-                temp_constitution[i - model_range_start] = j
-                # If the current block was used to replace other blocks,
-                # replace those blocks with the most similar block j
-                # TODO: Correct only if all models do not use blocks from later models.
-                # Otherwise, all model that are changed should be tested.
-                if i in dedup_dict:
-                    for k in dedup_dict[i]:
-                        idx = k - model_range_start
-                        if idx >= 0 and idx < len(temp_constitution):
-                            temp_constitution[idx] = j
+            if j == i or j in dedup_indices:
+                continue
 
-                acc = evaluate(
-                    model_storage,
-                    model_id,
-                    temp_constitution,
-                    data_args,
-                    model_args,
-                    training_args,
-                )
-                if acc >= acc_threshold:
-                    model_constitution = temp_constitution
-                    dedup_indices.add(i)
-                    dedup_dict[j].append(i)
-                    if i in dedup_dict:
-                        dedup_dict[j].extend(dedup_dict[i])
-                        del dedup_dict[i]
-                print(f"Model {model_id} block {i} -> {j} acc: {acc:.4f}")
-                print(f"Model constitution after dedup: {model_constitution}")
-                break
-    print(f"Actual distances: {actual_distances}")
-    return dedup_indices, dedup_dict
+            avg_distance = round(dist[j] / len(block_2b_replaced), 4)
+            total_diff = np.dot(measure, diff[j])
+            avg_distances.append(avg_distance)
+            total_diffs.append(total_diff)
+
+            # Replace the current block with the most similar block
+            temp_constitution = [j if c == i else c for c in model_constitution]
+
+            acc = evaluate(
+                model_storage,
+                model_id,
+                temp_constitution,
+                data_args,
+                model_args,
+                training_args,
+            )
+            if acc >= acc_threshold:
+                model_constitution = temp_constitution
+                dedup_indices.add(i)
+            print(f"Model {model_id} block {i} -> {j} acc: {acc:.4f}")
+            print(f"{avg_distance=}, {sens=}, {total_diff=}")
+            print(f"Model constitution after dedup: {model_constitution}")
+            break
+    print(f"Average distances: {avg_distances}")
+    print(f"Total diffs: {total_diffs}")
+    return dedup_indices

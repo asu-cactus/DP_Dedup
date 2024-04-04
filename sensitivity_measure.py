@@ -283,7 +283,7 @@ def get_model_and_dateset(
         config=config,
         cache_dir=model_args.cache_dir,
     )
-    print(f" *** model type: {type(model)}")
+    # print(f" *** model type: {type(model)}")
 
     # For BERT, increase the size of the segment (token type) embeddings
     if config.model_type == "bert":

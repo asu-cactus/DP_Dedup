@@ -8,7 +8,7 @@ from time import time
 import numpy as np
 
 from text_task_utils.evaluate import evaluate
-
+from sensitivity_measure import get_block_sensitivity
 
 # @dataclass
 # class ActionInfo:
@@ -127,6 +127,9 @@ def get_heuristics_dict(
     last_legal_model = find_last_legal_model(models_info)
 
     for model_id, last_model_id in last_legal_model.items():
+        model_info = models_info[model_id]
+        data_args.task_name = model_info["task_name"]
+        model_args.model_name_or_path = model_info["model_path"]
         acc_dict = get_acc_after_dedup(
             model_args,
             data_args,
@@ -203,12 +206,26 @@ def get_heuristic_info(
         # The following code order blocks in each model and put them together
         temp_dict = {}
         for i, model_start in enumerate(models_range[:-1]):
-            model_end = models_range[i + 1]
-            model_blocks = blocks[model_start:model_end]
+
+            # model_end = models_range[i + 1]
+            # model_blocks = blocks[model_start:model_end]
+
+            # The following lines order the blocks by sensitivity measure
+            model_info = models_info[i]
+            model_blocks, _ = get_block_sensitivity(
+                model_info["task_name"],
+                training_args.sensitivity_measure,
+                model_info["budget"],
+                skip_embeds=False,
+                return_n_embed_blocks=False,
+            )
+
             if training_args.orderby == "l2_norm":
                 block_magnitude = np.linalg.norm(model_blocks, axis=1)
-            else:
+            elif training_args.orderby == "3rd_quantile":
                 block_magnitude = np.quantile(model_blocks, 0.75, axis=1)
+            else:
+                raise ValueError(f"Unknown orderby: {training_args.orderby}")
             interate_seq = np.argsort(block_magnitude)
             interate_seq = [j + model_start for j in interate_seq]
             temp_dict.update({key: heuristics_dict[key] for key in interate_seq})
@@ -230,7 +247,7 @@ def get_heuristic_info(
         if not pass_test:
             continue
 
-        # Sort the legal actions by distance, from low to high
+        # Sort the legal actions by l1 distance, from low to high
         candidate_end = models_range[last_legal_model[curr_model_id] + 1]
         candidate_blocks = blocks[:candidate_end]
 

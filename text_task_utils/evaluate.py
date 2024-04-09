@@ -318,7 +318,7 @@ def evaluate(
             data_args, tokenizer=tokenizer, mode="dev", use_demo=use_demo
         )
 
-    print(f" *** eval dataset sizes: {len(eval_dataset)}")
+    print(f"\n*** eval dataset sizes: {len(eval_dataset)}")
 
     model = model_fn.from_pretrained(
         model_args.model_name_or_path,
@@ -391,5 +391,4 @@ def evaluate(
         compute_metrics=build_compute_metrics_fn(data_args.task_name),
     )
     metrics = trainer.evaluate()
-    print("*" * 20)
     return metrics["eval_acc"]

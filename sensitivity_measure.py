@@ -45,6 +45,50 @@ def load_final_constitution(exp_name: str = "l1_exp"):
     return constitution
 
 
+def count_input_ids2(dataset):
+    from collections import defaultdict
+
+    counter = defaultdict(int)
+
+    for features in dataset:
+        input_ids = set(features.input_ids)
+        input_ids = set([input_ids // 768 for input_ids in input_ids])
+
+        for input_id in input_ids:
+            counter[input_id] += 1
+
+    counter = dict(sorted(counter.items()))
+    print(f"counters: \n{counter}")
+    pdb.set_trace()
+
+
+def count_input_ids(dataset, count_sentence=True):
+    from collections import defaultdict
+
+    counter = defaultdict(int)
+
+    for features in dataset:
+        if count_sentence:
+            input_ids = set(features.input_ids)
+        else:
+            input_ids = features.input_ids
+        for input_id in input_ids:
+            counter[input_id] += 1
+
+    counter = dict(counter)
+    print(f"max key is {max(counter, key=int)}")
+    print(f"min key is {min(counter, key=int)}")
+
+    counter2 = defaultdict(int)
+    for i in range(66):
+        for j in range(768):
+            input_id = i * 768 + j
+            counter2[i] += counter.get(input_id, 0)
+    counter2 = dict(counter2)
+    print(f"counter2: \n{counter2}")
+    pdb.set_trace()
+
+
 def get_model_and_dateset(
     data_args: DynamicDataTrainingArguments,
     model_args: ModelArguments,
@@ -274,7 +318,7 @@ def get_model_and_dateset(
         eval_dataset = FewShotDataset(
             data_args, tokenizer=tokenizer, mode="dev", use_demo=use_demo
         )
-
+    # count_input_ids2(eval_dataset)
     print(f" *** eval dataset sizes: {len(eval_dataset)}")
 
     model = model_fn.from_pretrained(
@@ -617,7 +661,7 @@ def gradient_sensitity(
     batch_size=16,
     skip_embeds=False,
     sample_size=None,
-    correct_only=False,
+    correct_only=True,
 ):
     model.eval()
     model.cuda()

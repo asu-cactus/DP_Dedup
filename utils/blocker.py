@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import torch.nn.functional as F
 import torch
 
@@ -20,8 +21,10 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
     # # We normalize weights to have unit variance and will demonormalize during reconstruction.
     # scale_factors = []
     # Start blocking
-    bias_dict = {}
+    untouch_weights = {}
     blocks = []
+
+    # layer_ids, layer_names = [], []
 
     if isinstance(model_or_paramdict, dict):
         iterator = model_or_paramdict.items()
@@ -36,7 +39,7 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
         # No deduplicating 1-d vectors (mostly bias)
         if params.dim() == 1 or params.squeeze().dim() == 1:
             # if params.dim() == 1:
-            bias_dict[name] = params.numpy()
+            untouch_weights[name] = params.numpy()
             continue
 
         # # Normalize weights
@@ -54,6 +57,19 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
             )
         block = params_flatten.reshape(-1, BLOCKSIZE)
         blocks.append(block.numpy())
+
+    #     layer_ids.extend([i + 1] * block.shape[0])
+    #     layer_names.extend([name] * block.shape[0])
+
+    # df = pd.DataFrame(
+    #     {
+    #         "block_ids": np.arange(1, len(layer_ids) + 1),
+    #         "layer_id": layer_ids,
+    #         "layer_name": layer_names,
+    #     }
+    # )
+    # df.to_csv("largeblock_block_vs_layer.csv", index=False)
+    # exit()
 
     # # This part is just for experiment. Will not be used in the final version.
     # # For each block, get the layer that it belongs to, and save its start and end block index
@@ -74,7 +90,7 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
     model_storage = {
         # "scale_factors": np.array(scale_factors, dtype=np.float32),
         "blocks": np.concatenate(blocks, axis=0),
-        "bias_dict": bias_dict,  # list of numpy array
+        "untouch_weights": untouch_weights,  # list of numpy array
         # "search_range": search_range,  # numpy array of shape (n_all_blocks, 2)
     }
 
@@ -116,8 +132,8 @@ def get_blocks(
         # scale_factors.append(model_storage["scale_factors"])
 
         # Merge bias for all models
-        for jth_weight, _1d_weights in model_storage["bias_dict"].items():
-            biases[f"{ith_model}_{jth_weight}"] = _1d_weights
+        for jth_weight, weight in model_storage["untouch_weights"].items():
+            biases[f"{ith_model}_{jth_weight}"] = weight
 
         # if ith_model == 1:
         #     search_range = model_storage["search_range"]

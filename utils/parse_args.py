@@ -297,7 +297,7 @@ class DynamicTrainingArguments(TrainingArguments):
         },
     )
     sensitivity_measure: str = field(
-        default="fisher",
+        default="gradient",
         metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
     )
     fanout: int = field(

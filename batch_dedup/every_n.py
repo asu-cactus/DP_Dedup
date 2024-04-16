@@ -1,52 +1,74 @@
 import pdb
 import os
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 import numpy as np
 
 from utils.parse_args import parse_args
-from utils.blocker import get_blocks
+from utils.blocker import block_model_1d
 from utils import load_models_info
+from text_task_utils.models import RobertaForPromptFinetuning
 from text_task_utils.evaluate import evaluate
 from sensitivity_measure import get_block_sensitivity
 
 
+def merge_model_storage(base_model_storage, curr_model_storage):
+    base_blocks = base_model_storage["blocks"]
+    curr_blocks = curr_model_storage["blocks"]
+    blocks = np.concatenate([base_blocks, curr_blocks], axis=0)
+    model_range = [0, base_blocks.shape[0], base_blocks.shape[0] + curr_blocks.shape[0]]
+    return {
+        "blocks": blocks,
+        "model_range": model_range,
+    }
+
+
+def separate_blocks(model_constitution, n_base_blocks):
+    new_blocks = 0
+    blocks_from_base = set()
+    for block in model_constitution:
+        if block < n_base_blocks:
+            blocks_from_base.add(block)
+        else:
+            new_blocks.append(block)
+    print(f"New blocks: {new_blocks}")
+    print(f"Blocks from base: {blocks_from_base}")
+    return len(new_blocks), blocks_from_base
+
+
 def run():
-    """
-    This is a hard-coded version of the baseline5 method:
-    Order by sensitivity, and leave the all-zero sensitivity blocks to the end.
-    """
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info()
     model_paths = [info["model_path"] for info in models_info]
-    model_storage = get_blocks(model_paths=model_paths)
 
-    dedup_indices = set()
-    # dedup_dict = defaultdict(list)
+    base_model = RobertaForPromptFinetuning.from_pretrained(model_paths[0])
+    base_model_storage = block_model_1d(base_model)
+    n_base_blocks = base_model_storage["blocks"].shape[0]
 
-    dedup_indices = deduplicate_blocks(
-        model_args,
-        data_args,
-        training_args,
-        model_storage,
-        models_info,
-        dedup_indices,
-        # dedup_dict,
-        0,
-    )
-    print(f"Number of changes: {len(dedup_indices)}")
+    total_new_blocks = 0
+    blockss_from_base = set()
+    for model_path, model_info in zip(model_paths[1:], models_info[1:]):
+        print(f"Model info: {model_info}")
+        model = RobertaForPromptFinetuning.from_pretrained(model_path)
+        curr_model_storage = block_model_1d(model)
+        model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-    dedup_indices = deduplicate_blocks(
-        model_args,
-        data_args,
-        training_args,
-        model_storage,
-        models_info,
-        dedup_indices,
-        # dedup_dict,
-        1,
-    )
-    print(f"Number of changes: {len(dedup_indices)}")
+        model_constitution = deduplicate_blocks(
+            model_args,
+            data_args,
+            training_args,
+            model_storage,
+            model_info,
+            1,
+        )
+        n_new_blocks, blocks_from_base = separate_blocks(
+            model_constitution, n_base_blocks
+        )
+        total_new_blocks += n_new_blocks
+        blockss_from_base |= blocks_from_base
+    print(f"{total_new_blocks=}")
+    print(f"All blocks from base: {blockss_from_base}")
+    print(f"Number of blocks from base: {len(blockss_from_base)}")
 
 
 def deduplicate_blocks(
@@ -54,13 +76,11 @@ def deduplicate_blocks(
     data_args,
     training_args,
     model_storage,
-    models_info,
-    dedup_indices,
+    model_info,
     model_id,
     distance_metric="l1",
 ):
     # Set parameters
-    model_info = models_info[model_id]
     acc_threshold = model_info["original_acc"] - model_info["acc_drop_threshold"]
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
@@ -96,7 +116,6 @@ def deduplicate_blocks(
     print(f"Size of all zero sensitivity blocks : {len(allzero_indices)}")
     print(f"All zero sensitivity blocks : {allzerograd_seq}")
     allzero_indices_set = set(allzerograd_seq)
-    used_allzero_indices = set()
 
     if training_args.orderby == "l1_norm":
         block_sens = np.sum(np.abs(measures), axis=1)
@@ -122,13 +141,25 @@ def deduplicate_blocks(
 
     # Print the block magnitude
     ordered_sensitivity = [round(m, 6) for m in block_sens[ordered_indices]]
-
     measures = measures[ordered_indices]
 
-    avg_distances = []
-    total_diffs = []
-    # search_range = model_storage["search_range"]
+    # Initialize variables
+    # Current iteration, evaluate every n iterations
+    curr_iter = 0
+    # Deduplicated indices
+    dedup_indices = set()
+    tobe_dedup_indices = set()
+    # Used all-zero sensitivity indices
+    used_allzero_indices = set()
+    used_allzero_indices_temp = set()
+    # Constitution to be evaluated
+    temp_constitution = model_constitution.copy()
+
     for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
+        curr_iter = curr_iter % training_args.every_n
+        curr_iter += 1
+        tobe_dedup_indices.add(i)
+
         block_2b_replaced = model_storage["blocks"][i]
         diff = candidate_blocks - block_2b_replaced
         # Sort by some metrics: l1, l2, cosine
@@ -152,19 +183,26 @@ def deduplicate_blocks(
         #     dist[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
         #     dist[search_range[i - 833, 3] :] = np.inf
 
-        ind = dist.argsort()
-        for j in ind:
-            if j == i or j in dedup_indices:
+        # Find the most similar block j
+        j = -1
+        for idx in dist.argsort():
+            if idx == i or idx in dedup_indices:
                 continue
+            j = idx
+            break
 
-            avg_distance = round(dist[j] / len(block_2b_replaced), 4)
-            total_diff = np.dot(measure, diff[j])
-            avg_distances.append(avg_distance)
-            total_diffs.append(total_diff)
+        if j in allzero_indices_set:
+            used_allzero_indices_temp.add(j)
 
-            # Replace the current block with the most similar block
-            temp_constitution = [j if c == i else c for c in model_constitution]
+        avg_distance = round(dist[j] / len(block_2b_replaced), 4)
+        total_diff = np.dot(measure, diff[j])
+        print(f"{model_info['model_path']} block {i} -> {j}")
+        print(f"{avg_distance=}, {sens=}, {total_diff=}")
 
+        # Replace the current block with the most similar block
+        temp_constitution = [j if c == i else c for c in temp_constitution]
+
+        if curr_iter == training_args.every_n:
             acc = evaluate(
                 model_storage,
                 model_id,
@@ -174,14 +212,14 @@ def deduplicate_blocks(
                 training_args,
             )
             if acc >= acc_threshold:
+                dedup_indices |= tobe_dedup_indices
+                used_allzero_indices |= used_allzero_indices_temp
                 model_constitution = temp_constitution
-                dedup_indices.add(i)
-                if j in allzero_indices_set:
-                    used_allzero_indices.add(j)
-            print(f"Model {model_id} block {i} -> {j} acc: {acc:.4f}")
-            print(f"{avg_distance=}, {sens=}, {total_diff=}")
+            tobe_dedup_indices = set()
+            used_allzero_indices_temp = set()
+            temp_constitution = model_constitution.copy()
+            print(f"acc: {acc:.4f}")
             print(f"Model constitution after dedup: {model_constitution}")
-            break
 
     # Deduplicate all-zero sensitivity blocks
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
@@ -203,8 +241,7 @@ def deduplicate_blocks(
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
 
-        ind = dist.argsort()
-        for j in ind:
+        for j in dist.argsort():
             if j in allzero_indices_set or j in dedup_indices:
                 continue
             # Replace the current block with the most similar block
@@ -221,11 +258,8 @@ def deduplicate_blocks(
     )
     if acc >= acc_threshold:
         model_constitution = temp_constitution
-        dedup_indices |= set(allzerograd_seq)
-    print(f"Model {model_id} dedup zero sensitivity blocks acc: {acc:.4f}")
+
+    print(f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}")
     print(f"Model constitution after dedup: {model_constitution}")
 
-    print(f"Block senstivity {training_args.orderby}:\n{ordered_sensitivity}")
-    print(f"Average distances: {avg_distances}")
-    print(f"Total diffs: {total_diffs}")
-    return dedup_indices
+    return model_constitution

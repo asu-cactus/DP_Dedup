@@ -490,13 +490,11 @@ def get_sensitivity(
 
 
 def get_block_sensitivity(
-    taskname, measure, eps, skip_embeds=True, return_n_embed_blocks=False
+    model_info, measure, skip_embeds=True, return_n_embed_blocks=False
 ):
-    taskname = "sst-2" if taskname == "sst" else taskname
-
     model_args, data_args, training_args = parse_args()
-    data_args.task_name = taskname
-    model_args.model_name_or_path = f"../models/base-{taskname}-eps{eps}/"
+    data_args.task_name = model_info["task_name"]
+    model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
     model, dataset = get_model_and_dateset(
         data_args,

@@ -114,7 +114,7 @@ def get_blocks(
     # search_range = None
 
     blocks = []
-    biases = {}
+    untouch_weights = {}
     # scale_factors = []
     model_range = [0]
 
@@ -133,7 +133,7 @@ def get_blocks(
 
         # Merge bias for all models
         for jth_weight, weight in model_storage["untouch_weights"].items():
-            biases[f"{ith_model}_{jth_weight}"] = weight
+            untouch_weights[f"{ith_model}_{jth_weight}"] = weight
 
         # if ith_model == 1:
         #     search_range = model_storage["search_range"]
@@ -144,7 +144,7 @@ def get_blocks(
     return {
         "blocks": blocks,  #  numpy array, shape: (n_all_blocks, BLOCKSIZE)
         "model_range": np.array(model_range),  #  numpy array of type int
-        "biases": biases,  # dict: {f"{ith_model}_{jth_weight}": bias}
+        "untouch_weights": untouch_weights,  # dict: {f"{ith_model}_{jth_weight}": bias}
     }
     # # Save blocks, biases, scale_factors to blocks_path
     # np.savez(

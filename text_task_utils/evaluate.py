@@ -351,10 +351,11 @@ def evaluate(
     model.tokenizer = tokenizer
 
     # Reconstruct the parameters using the model constitution
-    if blocks is None:
-        reconstruct_weight(model_storage, model, model_id, model_constitution)
-    else:
-        reconstruct_weight_helper(model, blocks, 0, model_constitution)
+    if model_constitution:
+        if blocks is None:
+            reconstruct_weight(model_storage, model, model_id, model_constitution)
+        else:
+            reconstruct_weight_helper(model, blocks, 0, model_constitution)
 
     # Build metric
     def build_compute_metrics_fn(task_name: str) -> Callable[[EvalPrediction], Dict]:
@@ -390,5 +391,5 @@ def evaluate(
         eval_dataset=eval_dataset,
         compute_metrics=build_compute_metrics_fn(data_args.task_name),
     )
-    metrics = trainer.evaluate()
+    metrics = trainer.evaluate(eval_dataset=eval_dataset)
     return metrics["eval_acc"]

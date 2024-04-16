@@ -108,7 +108,7 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
     )
 
     num_k: Optional[int] = field(
-        default=16, metadata={"help": "Number of training instances per class"}
+        default=1, metadata={"help": "Number of training instances per class"}
     )
 
     num_sample: Optional[int] = field(
@@ -197,6 +197,10 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
     debug_mode: bool = field(default=False, metadata={"help": "Debug mode"})
 
     # For max length
+    max_seq_len: int = field(
+        default=256, metadata={"help": "Maximum sequence length for the model"}
+    )
+
     double_demo: bool = field(
         default=False, metadata={"help": "Use double length for using demonstrations"}
     )
@@ -274,6 +278,14 @@ class DynamicTrainingArguments(TrainingArguments):
         default="outputs",
         metadata={"help": "Output directory"},
     )
+
+    # For batch deduplication
+    every_n: int = field(
+        default=10,
+        metadata={"help": "Run deduplication every n blocks"},
+    )
+
+    # For MCTS
     n_episodes: int = field(
         default=10000,
         metadata={"help": "Number of episodes for MCTS"},

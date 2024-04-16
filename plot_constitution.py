@@ -1,3 +1,6 @@
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import pdb
 from pathlib import Path
 import re
@@ -114,14 +117,15 @@ def test_evaluate():
     models_info = load_models_info()
     model_paths = [info["model_path"] for info in models_info]
     models_storage = get_blocks(model_paths=model_paths)
+
     data_args.task_name = models_info[0]["task_name"]
     model_args.model_name_or_path = models_info[0]["model_path"]
-
-    model0 = list(range(0, 278))
+    # model0_range_end = models_storage["model_range"][1]
+    # model0 = list(range(0, model0_range_end))
     acc = evaluate(
         models_storage,
         0,
-        model0,
+        None,
         data_args,
         model_args,
         training_args,
@@ -130,12 +134,12 @@ def test_evaluate():
 
     data_args.task_name = models_info[1]["task_name"]
     model_args.model_name_or_path = models_info[1]["model_path"]
-
-    model1 = list(range(278, 556))
+    # model1_range_end = models_storage["model_range"][2]
+    # model1 = list(range(model0_range_end, model1_range_end))
     acc = evaluate(
         models_storage,
         1,
-        model1,
+        None,
         data_args,
         model_args,
         training_args,

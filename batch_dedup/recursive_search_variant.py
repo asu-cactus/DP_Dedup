@@ -306,6 +306,7 @@ def recursive_deduplicate(
             distance_metric,
             acc_threshold,
             dedup_indices,
+            eval_fn,
         )
     else:
         model_constitution = recursive_deduplicate(

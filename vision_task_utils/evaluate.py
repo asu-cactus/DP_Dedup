@@ -13,17 +13,6 @@ import timm
 import numpy as np
 
 
-def print_params(model):
-    total_params = 0
-    for name, param in model.named_parameters():
-        print(name, param.size())
-        total_params += param.numel()
-
-    print(f"Number of total parameters: {total_params}")
-
-    pdb.set_trace()
-
-
 def evaluate(
     model_storage,
     model_id,

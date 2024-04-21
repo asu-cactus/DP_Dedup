@@ -303,6 +303,7 @@ def recursive_deduplicate(
             distance_metric,
             acc_threshold,
             dedup_indices,
+            eval_fn,
         )
 
     if success or n_dedup_left > len(left_seq) // 2:
@@ -318,6 +319,7 @@ def recursive_deduplicate(
             distance_metric,
             acc_threshold,
             dedup_indices,
+            eval_fn,
         )
         if success:
             return len(left_seq) + n_dedup_right, model_constitution

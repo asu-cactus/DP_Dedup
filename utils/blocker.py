@@ -185,7 +185,7 @@ def reconstruct_weight_helper(
 
     for _, params in enumerate(model.parameters()):
         params.requires_grad = False
-        if params.dim() == 1 or params.squeeze().dim() == 1:
+        if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
             # if params.dim() == 1:
             # For now, assume the models are loaded from original storage
             # So no need to reconstruct bias from model_storage

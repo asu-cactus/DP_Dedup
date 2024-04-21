@@ -16,6 +16,16 @@ class ModelArguments:
     Arguments pertaining to which model/config/tokenizer we are going to fine-tune from.
     """
 
+    task_type: str = field(
+        default="vision",
+        metadata={"help": "Task type. Choice: text, vision"},
+    )
+    # For vision task
+    model: str = field(
+        default="vit_large_patch16_224",
+        metadata={"help": "Vision model name"},
+    )
+    # For text task
     model_ids: Optional[str] = field(
         default="",
         metadata={
@@ -91,6 +101,7 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
     Arguments for dynamic training.
     """
 
+    # For text task
     data_root_dir: Optional[str] = field(
         default="../fast-differential-privacy/examples/text_classification/data/original/",
         metadata={"help": "The input data root dir."},
@@ -99,12 +110,16 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
         default="",
         metadata={"help": "The name of the task that the model is trained on"},
     )
-
     data_dir: Optional[str] = field(
         default="",
         metadata={
             "help": "The input data dir. Not used in the script, just make the script works"
         },
+    )
+    # For vision task
+    dataset_name: Optional[str] = field(
+        default="CIFAR100",
+        metadata={"help": "The name of the dataset that the model is trained on"},
     )
 
     num_k: Optional[int] = field(
@@ -283,6 +298,16 @@ class DynamicTrainingArguments(TrainingArguments):
     every_n: int = field(
         default=10,
         metadata={"help": "Run deduplication every n blocks"},
+    )
+
+    # For vision task
+    bs: int = field(
+        default=1000,
+        metadata={"help": "Batch size"},
+    )
+    mini_bs: int = field(
+        default=50,
+        metadata={"help": "Mini-batch size"},
     )
 
     # For MCTS

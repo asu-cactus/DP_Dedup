@@ -10,7 +10,7 @@
     "1": {
         "model_path": "../models/base-qnli-eps2/",
         "task_name": "qnli",
-        "acc_drop_threshold": 0.023,
+        "acc_drop_threshold": 0.008,
         "original_acc": 0.793,
         "budget": 2,
         "allowed_budget": 3
@@ -18,7 +18,7 @@
     "3": {
         "model_path": "../models/base-qnli-eps4",
         "task_name": "qnli",
-        "acc_drop_threshold": 0.020,
+        "acc_drop_threshold": 0.014,
         "original_acc": 0.800,
         "budget": 4,
         "allowed_budget": 5

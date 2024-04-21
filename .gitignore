@@ -1,6 +1,6 @@
 baseline/
 block_storage/
-dataset/
+data/
 plots/
 outputs*/
 __pycache__/

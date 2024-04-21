@@ -5,7 +5,6 @@ import numpy as np
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
 from utils import load_models_info
-
 from batch_dedup.common import load_model
 
 
@@ -36,9 +35,8 @@ def separate_blocks(model_constitution, n_base_blocks):
 def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info()
-    # model_paths = [info["model_path"] for info in models_info]
-
     base_model, _, _ = load_model(models_info[0], model_args)
+    # Block model
     base_model_storage = block_model_1d(base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
 
@@ -65,9 +63,19 @@ def run():
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
-    print(f"\n{total_new_blocks=}")
+    print(f"{total_new_blocks=}")
     print(f"All blocks from base: {blockss_from_base}")
     print(f"Number of blocks from base: {len(blockss_from_base)}")
+
+
+def get_used_allzero_indices(
+    model_constitution, allzero_indices_set, model_range_start
+):
+    used_allzero_indices = set()
+    for i, block in enumerate(model_constitution):
+        if block in allzero_indices_set and block - model_range_start != i:
+            used_allzero_indices.add(block)
+    return used_allzero_indices
 
 
 def deduplicate_blocks(
@@ -140,90 +148,29 @@ def deduplicate_blocks(
         # interate_seq = interate_seq[ordered_indices]
         interate_seq = seq_to_order[ordered_indices]
 
-    # Print the block magnitude
-    ordered_sensitivity = [round(m, 6) for m in block_sens[ordered_indices]]
-    measures = measures[ordered_indices]
-
-    # Initialize variables
-    # Current iteration, evaluate every n iterations
-    curr_iter = 0
-
-    # Deduplicated indices
+    # Deduplicate non-all-zero sensitivity blocks
+    interate_seq = interate_seq.tolist()
+    right_seq = []
     dedup_indices = set()
-    tobe_dedup_indices = set()
-    # Used all-zero sensitivity indices
-    used_allzero_indices = set()
-    used_allzero_indices_temp = set()
-    # Constitution to be evaluated
-    temp_constitution = model_constitution.copy()
-
-    for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
-
-        curr_iter += 1
-        tobe_dedup_indices.add(i)
-
-        block_2b_replaced = model_storage["blocks"][i]
-        diff = candidate_blocks - block_2b_replaced
-        # Sort by some metrics: l1, l2, cosine
-        if distance_metric == "l1":
-            dist = np.sum(np.abs(diff), axis=1)
-        elif distance_metric == "l2":
-            dist = np.linalg.norm(diff, axis=1)
-        elif distance_metric == "cosine":
-            dist = np.dot(candidate_blocks, block_2b_replaced) / (
-                np.linalg.norm(candidate_blocks) * np.linalg.norm(block_2b_replaced)
-            )
-        else:
-            raise ValueError(f"Invalid distance metric: {distance_metric}")
-
-        # # This part is just for experiment. Will not be used in the final version.
-        # if model_id == 0:
-        #     dist[0 : search_range[i, 0]] = np.inf
-        #     dist[search_range[i, 1] :] = np.inf
-        # else:
-        #     dist[0 : search_range[i - 833, 0]] = np.inf
-        #     dist[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
-        #     dist[search_range[i - 833, 3] :] = np.inf
-
-        # Find the most similar block j
-        j = -1
-        for idx in dist.argsort():
-            if idx == i or idx in dedup_indices or idx in tobe_dedup_indices:
-                continue
-            j = idx
-            break
-
-        if j in allzero_indices_set:
-            used_allzero_indices_temp.add(j)
-
-        avg_distance = round(dist[j] / len(block_2b_replaced), 4)
-        total_diff = np.dot(measure, diff[j])
-        print(f"{model_info['model_path']} block {i} -> {j}")
-        print(f"{avg_distance=}, {sens=}, {total_diff=}")
-
-        # Replace the current block with the most similar block
-        temp_constitution = [j if c == i else c for c in temp_constitution]
-
-        if curr_iter % training_args.every_n == 0 or curr_iter == len(interate_seq):
-            acc = eval_fn(
-                model_storage,
-                model_id,
-                temp_constitution,
-                data_args,
-                model_args,
-                training_args,
-            )
-            if acc >= acc_threshold:
-                dedup_indices |= tobe_dedup_indices
-                used_allzero_indices |= used_allzero_indices_temp
-                model_constitution = temp_constitution
-            tobe_dedup_indices = set()
-            used_allzero_indices_temp = set()
-            temp_constitution = model_constitution.copy()
-            print(f"acc: {acc:.4f}, dedup success: {acc >= acc_threshold}")
-            print(f"Model constitution after dedup: {model_constitution}\n")
+    model_constitution = recursive_deduplicate(
+        model_args,
+        data_args,
+        training_args,
+        interate_seq,
+        right_seq,
+        model_storage,
+        candidate_blocks,
+        model_constitution,
+        model_info,
+        distance_metric,
+        acc_threshold,
+        dedup_indices,
+    )
 
     # Deduplicate all-zero sensitivity blocks
+    used_allzero_indices = get_used_allzero_indices(
+        model_constitution, allzero_indices_set, model_range_start
+    )
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
 
@@ -263,9 +210,117 @@ def deduplicate_blocks(
     if acc >= acc_threshold:
         model_constitution = temp_constitution
 
-    print(
-        f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}, dedup success: {acc >= acc_threshold}"
-    )
-    print(f"Model constitution after dedup: {model_constitution}\n")
+    print(f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}")
+    print(f"Model constitution after dedup: {model_constitution}")
 
+    return model_constitution
+
+
+def recursive_deduplicate(
+    model_args,
+    data_args,
+    training_args,
+    interate_seq,
+    right_seq,
+    model_storage,
+    candidate_blocks,
+    model_constitution,
+    model_info,
+    distance_metric,
+    acc_threshold,
+    dedup_indices,
+    eval_fn,
+    min_seq_len=30,
+):
+    # Base case
+    if len(interate_seq) < min_seq_len:
+        return model_constitution
+
+    mid_point = len(interate_seq) // 2
+    left_seq = interate_seq[:mid_point]
+    right_seq = interate_seq[mid_point:] + right_seq
+
+    # Initialize variables
+    #  Deduplicated indices
+    tobe_dedup_indices = set()
+    # Constitution to be evaluated
+    temp_constitution = model_constitution.copy()
+
+    for i in left_seq:
+        tobe_dedup_indices.add(i)
+        block_2b_replaced = model_storage["blocks"][i]
+        diff = candidate_blocks - block_2b_replaced
+        # Sort by some metrics: l1, l2, cosine
+        if distance_metric == "l1":
+            dist = np.sum(np.abs(diff), axis=1)
+        elif distance_metric == "l2":
+            dist = np.linalg.norm(diff, axis=1)
+        elif distance_metric == "cosine":
+            dist = np.dot(candidate_blocks, block_2b_replaced) / (
+                np.linalg.norm(candidate_blocks) * np.linalg.norm(block_2b_replaced)
+            )
+        else:
+            raise ValueError(f"Invalid distance metric: {distance_metric}")
+
+        # Find the most similar block j
+        j = -1
+        for idx in dist.argsort():
+            if idx == i or idx in dedup_indices or idx in tobe_dedup_indices:
+                continue
+            j = idx
+            break
+
+        print(f"{model_info['model_path']} block {i} -> {j}")
+
+        # Replace the current block with the most similar block
+        temp_constitution = [j if c == i else c for c in temp_constitution]
+
+    acc = eval_fn(
+        model_storage,
+        1,
+        temp_constitution,
+        data_args,
+        model_args,
+        training_args,
+    )
+    success = False
+    if acc >= acc_threshold:
+        dedup_indices |= tobe_dedup_indices
+        model_constitution = temp_constitution
+        success = True
+
+    print(f"acc: {acc:.4f}, dedup success:: {success}")
+    print(f"Model constitution after dedup: {model_constitution}")
+
+    if success:
+        model_constitution = recursive_deduplicate(
+            model_args,
+            data_args,
+            training_args,
+            right_seq,
+            [],
+            model_storage,
+            candidate_blocks,
+            model_constitution,
+            model_info,
+            distance_metric,
+            acc_threshold,
+            dedup_indices,
+        )
+    else:
+        model_constitution = recursive_deduplicate(
+            model_args,
+            data_args,
+            training_args,
+            left_seq,
+            right_seq,
+            model_storage,
+            candidate_blocks,
+            model_constitution,
+            model_info,
+            distance_metric,
+            acc_threshold,
+            dedup_indices,
+            eval_fn,
+        )
     return model_constitution

@@ -294,10 +294,15 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Output directory"},
     )
 
-    # For batch deduplication
+    # For batch deduplication (used in every_n.py)
     every_n: int = field(
         default=10,
         metadata={"help": "Run deduplication every n blocks"},
+    )
+    # For binary search and successive halving (used in binary_search.py and recursive_search_variant.py)
+    min_dedup_len: int = field(
+        default=10,
+        metadata={"help": "Minimum number of blocks to deduplicate"},
     )
 
     # For vision task
@@ -308,6 +313,18 @@ class DynamicTrainingArguments(TrainingArguments):
     mini_bs: int = field(
         default=50,
         metadata={"help": "Mini-batch size"},
+    )
+
+    # For heuristics
+    orderby: str = field(
+        default="l2_norm",
+        metadata={
+            "help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm, l1_norm, l_inf_norm]"
+        },
+    )
+    sensitivity_measure: str = field(
+        default="gradient",
+        metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
     )
 
     # For MCTS
@@ -327,16 +344,8 @@ class DynamicTrainingArguments(TrainingArguments):
             "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
         },
     )
-    orderby: str = field(
-        default="l2_norm",
-        metadata={
-            "help": "Order block_2b_replaced by one of [3rd_quantile, l2_norm, l1_norm, l_inf_norm]"
-        },
-    )
-    sensitivity_measure: str = field(
-        default="gradient",
-        metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
-    )
+
+    # MCTS parameters
     fanout: int = field(
         default=100,
         metadata={"help": "Fanout of the first sub-action for MCTS"},
@@ -361,7 +370,7 @@ class DynamicTrainingArguments(TrainingArguments):
         default=0.1,
         metadata={"help": "C-prod for UCT"},
     )
-    # For resume search
+    # For MCTS resume search
     resume: bool = field(
         default=False,
         metadata={"help": "Whether to resume Es dict for MCTS"},

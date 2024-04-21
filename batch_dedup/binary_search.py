@@ -229,11 +229,10 @@ def recursive_deduplicate(
     acc_threshold,
     dedup_indices,
     eval_fn,
-    min_seq_len=30,
 ):
 
     # Base case
-    if len(interate_seq) < min_seq_len:
+    if len(interate_seq) < training_args.min_dedup_len:
         return 0, model_constitution
 
     mid_point = len(interate_seq) // 2

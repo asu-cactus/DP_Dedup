@@ -134,6 +134,7 @@ def evaluate(
     model = timm.create_model(
         model_args.model, pretrained=True, num_classes=num_classes
     )
+    model.cuda()
 
     # Reconstruct the parameters using the model constitution
     if model_constitution:

@@ -35,7 +35,7 @@ def separate_blocks(model_constitution, n_base_blocks):
 
 def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info()
+    models_info = load_models_info(model_args.task_type)
     # model_paths = [info["model_path"] for info in models_info]
 
     base_model, _, _ = load_model(models_info[0], model_args)

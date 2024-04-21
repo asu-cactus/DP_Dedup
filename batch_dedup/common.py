@@ -1,5 +1,17 @@
 import timm
 import torch
+import pdb
+
+
+def print_params(model):
+    total_params = 0
+    for name, param in model.named_parameters():
+        print(name, param.size())
+        total_params += param.numel()
+
+    print(f"Number of total parameters: {total_params}")
+
+    pdb.set_trace()
 
 
 def load_model(model_info, model_args):

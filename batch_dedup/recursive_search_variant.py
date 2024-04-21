@@ -34,7 +34,7 @@ def separate_blocks(model_constitution, n_base_blocks):
 
 def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info()
+    models_info = load_models_info(model_args.task_type)
     base_model, _, _ = load_model(models_info[0], model_args)
     # Block model
     base_model_storage = block_model_1d(base_model)
@@ -165,6 +165,7 @@ def deduplicate_blocks(
         distance_metric,
         acc_threshold,
         dedup_indices,
+        eval_fn,
     )
 
     # Deduplicate all-zero sensitivity blocks
@@ -230,10 +231,9 @@ def recursive_deduplicate(
     acc_threshold,
     dedup_indices,
     eval_fn,
-    min_seq_len=30,
 ):
     # Base case
-    if len(interate_seq) < min_seq_len:
+    if len(interate_seq) < training_args.min_dedup_len:
         return model_constitution
 
     mid_point = len(interate_seq) // 2

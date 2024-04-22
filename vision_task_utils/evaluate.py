@@ -14,12 +14,12 @@ import numpy as np
 
 
 def evaluate(
-    model_storage,
-    model_id,
-    model_constitution,
     data_args,
     model_args,
-    training_args,
+    model_path,
+    model_constitution=None,
+    model_storage=None,
+    model_id=None,
     blocks: np.array = None,
 ):
 
@@ -123,6 +123,7 @@ def evaluate(
     model = timm.create_model(
         model_args.model, pretrained=True, num_classes=num_classes
     )
+    model.load_state_dict(torch.load(model_path))
     model.cuda()
 
     # Reconstruct the parameters using the model constitution
@@ -158,11 +159,11 @@ def evaluate(
             else:
                 _, predicted = outputs.max(1)
                 correct += predicted.eq(targets).sum().item()
-        acc = 100.0 * correct / total
+        acc = correct / total
         loss = test_loss / (batch_idx + 1)
         tok = time()
 
-        print(f"Test Loss: {loss:.3f} | Test Acc: {acc:.4f} | Time: {tok-tic:.3f}s")
+        print(f"Test Loss: {loss:.3f} | Test Acc: {acc:.5f} | Time: {tok-tic:.3f}s")
 
     return acc
 

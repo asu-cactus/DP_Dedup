@@ -5,31 +5,7 @@ import numpy as np
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
 from utils import load_models_info
-from batch_dedup.common import load_model
-
-
-def merge_model_storage(base_model_storage, curr_model_storage):
-    base_blocks = base_model_storage["blocks"]
-    curr_blocks = curr_model_storage["blocks"]
-    blocks = np.concatenate([base_blocks, curr_blocks], axis=0)
-    model_range = [0, base_blocks.shape[0], base_blocks.shape[0] + curr_blocks.shape[0]]
-    return {
-        "blocks": blocks,
-        "model_range": model_range,
-    }
-
-
-def separate_blocks(model_constitution, n_base_blocks):
-    new_blocks = []
-    blocks_from_base = set()
-    for block in model_constitution:
-        if block < n_base_blocks:
-            blocks_from_base.add(block)
-        else:
-            new_blocks.append(block)
-    print(f"New blocks: {new_blocks}")
-    print(f"Blocks from base: {blocks_from_base}")
-    return len(new_blocks), blocks_from_base
+from utils.common import load_model, merge_model_storage, separate_blocks
 
 
 def run():
@@ -199,15 +175,15 @@ def deduplicate_blocks(
             print(f"{model_info['model_path']} block {i} -> {j}")
             temp_constitution = [j if c == i else c for c in temp_constitution]
             break
-
     acc = eval_fn(
-        model_storage,
-        model_id,
-        temp_constitution,
         data_args,
         model_args,
-        training_args,
+        model_info["model_path"],
+        temp_constitution,
+        model_storage,
+        model_id,
     )
+
     if acc >= acc_threshold:
         model_constitution = temp_constitution
 
@@ -276,13 +252,14 @@ def recursive_deduplicate(
         temp_constitution = [j if c == i else c for c in temp_constitution]
 
     acc = eval_fn(
-        model_storage,
-        1,
-        temp_constitution,
         data_args,
         model_args,
-        training_args,
+        model_info["model_path"],
+        temp_constitution,
+        model_storage,
+        1,
     )
+
     success = False
     if acc >= acc_threshold:
         dedup_indices |= tobe_dedup_indices

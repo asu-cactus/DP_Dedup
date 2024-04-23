@@ -13,9 +13,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from utils.parse_args import parse_args
-from utils.blocker import get_blocks, block_model_1d
 from utils import load_models_info
-from utils.common import load_model
 
 
 @dataclass
@@ -46,24 +44,24 @@ def visualize_dedupicable_sequence(baseline_filename):
             )
 
 
-def parse_final_constitution():
+# def parse_final_constitution():
 
-    print(f"model 0 len: {len(model0)}")
-    print(f"model 1 len: {len(model1)}")
-    for ith_model, (model, start_idx) in enumerate([(model0, 0), (model1, 833)]):
-        dedup_count = 0
-        for i, block in enumerate(model):
-            if block == i + start_idx:
-                model[i] = 0
-            else:
+#     print(f"model 0 len: {len(model0)}")
+#     print(f"model 1 len: {len(model1)}")
+#     for ith_model, (model, start_idx) in enumerate([(model0, 0), (model1, 833)]):
+#         dedup_count = 0
+#         for i, block in enumerate(model):
+#             if block == i + start_idx:
+#                 model[i] = 0
+#             else:
 
-                dedup_count += 1
-                if block >= start_idx:
-                    model[i] = 1
-                else:
-                    model[i] = 2
-        print(f"model {ith_model}: {model}")
-        print(f"dedup_count: {dedup_count}")
+#                 dedup_count += 1
+#                 if block >= start_idx:
+#                     model[i] = 1
+#                 else:
+#                     model[i] = 2
+#         print(f"model {ith_model}: {model}")
+#         print(f"dedup_count: {dedup_count}")
 
 
 def compute_measure(blocks: np.ndarray, measure: str):
@@ -75,40 +73,40 @@ def compute_measure(blocks: np.ndarray, measure: str):
         raise NotImplementedError
 
 
-def plot_constitution_heatmap():
-    # Load model storage
-    model_args, data_args, training_args = parse_args()
-    Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
-    models_info = load_models_info(model_args)
-    model_paths = [info["model_path"] for info in models_info]
-    models_storage = get_blocks(
-        model_paths=model_paths, npz_filename="model_storage_nonorm"
-    )
+# def plot_constitution_heatmap():
+#     # Load model storage
+#     model_args, data_args, training_args = parse_args()
+#     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
+#     models_info = load_models_info(model_args)
+#     model_paths = [info["model_path"] for info in models_info]
+#     models_storage = get_blocks(
+#         model_paths=model_paths, npz_filename="model_storage_nonorm"
+#     )
 
-    blocks = models_storage["blocks"]
+#     blocks = models_storage["blocks"]
 
-    measures_before = compute_measure(blocks, measure="3rd_quartile")
-    measures0_after = measures_before[model0].reshape(-1, 1)
-    measures1_after = measures_before[model1].reshape(-1, 1)
+#     measures_before = compute_measure(blocks, measure="3rd_quartile")
+#     measures0_after = measures_before[model0].reshape(-1, 1)
+#     measures1_after = measures_before[model1].reshape(-1, 1)
 
-    measures_before = measures_before.reshape(2, -1).transpose()
-    measures = np.concatenate(
-        (measures_before, measures0_after, measures1_after), axis=1
-    )
+#     measures_before = measures_before.reshape(2, -1).transpose()
+#     measures = np.concatenate(
+#         (measures_before, measures0_after, measures1_after), axis=1
+#     )
 
-    df = pd.DataFrame(
-        measures,
-        columns=[
-            "model0_original",
-            "model1_original",
-            "model0_deduped",
-            "model1_deduped",
-        ],
-    )
+#     df = pd.DataFrame(
+#         measures,
+#         columns=[
+#             "model0_original",
+#             "model1_original",
+#             "model0_deduped",
+#             "model1_deduped",
+#         ],
+#     )
 
-    fig, ax = plt.subplots(figsize=(15, 5))
-    sns.heatmap(df.T, cmap="YlGnBu", yticklabels=df.columns, ax=ax)
-    fig.savefig("heatmap.png", dpi=300, bbox_inches="tight", pad_inches=0.1)
+#     fig, ax = plt.subplots(figsize=(15, 5))
+#     sns.heatmap(df.T, cmap="YlGnBu", yticklabels=df.columns, ax=ax)
+#     fig.savefig("heatmap.png", dpi=300, bbox_inches="tight", pad_inches=0.1)
 
 
 def text_task_evaluate():
@@ -124,14 +122,7 @@ def text_task_evaluate():
     model_args.model_name_or_path = models_info[0]["model_path"]
     # model0_range_end = models_storage["model_range"][1]
     # model0 = list(range(0, model0_range_end))
-    acc = evaluate(
-        None,
-        0,
-        None,
-        data_args,
-        model_args,
-        training_args,
-    )
+    acc = evaluate(data_args, model_args, training_args, models_info[0])
     print(f"Accuracy: {acc}")
 
     data_args.task_name = models_info[1]["task_name"]
@@ -147,6 +138,31 @@ def text_task_evaluate():
         training_args,
     )
     print(f"Accuracy: {acc}")
+
+
+def vision_task_parameters():
+    import timm
+    from utils.blocker import block_model_1d
+    from opacus.validators import ModuleValidator
+    import torch
+
+    model = timm.create_model("resnet152.tv2_in1k", pretrained=True, num_classes=40)
+    model = ModuleValidator.fix(model)
+    model.load_state_dict(
+        torch.load("../models/in1k_CelebA_eps0.4.pt", map_location="cpu")
+    )
+
+    for name, param in model.named_parameters():
+        print(name, param.size())
+
+    total_number_of_parameters = sum(p.numel() for p in model.parameters())
+    print(f"Total number of parameters: {total_number_of_parameters}")
+    model_storage = block_model_1d(model)
+    untouch_weights = model_storage["untouch_weights"]
+    untouch_weights_counts = 0
+    for weight in untouch_weights.values():
+        untouch_weights_counts += weight.size
+    print(f"Number of untouch weights: {untouch_weights_counts}")
 
 
 def vision_task_evaluation():
@@ -174,4 +190,6 @@ if __name__ == "__main__":
     # plot_constitution_heatmap()
     # text_task_evaluate()
 
-    vision_task_evaluation()
+    # vision_task_evaluation()
+
+    vision_task_parameters()

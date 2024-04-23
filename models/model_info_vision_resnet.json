@@ -1,0 +1,42 @@
+{
+    "0": {
+        "model_path": "../models/in1k_CelebA_eps0.4.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.02,
+        "original_acc": 0.804,
+        "budget": 0.4,
+        "allowed_budget": 0.4
+    },
+    "1": {
+        "model_path": "../models/in1k_CelebA_eps0.6.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.012,
+        "original_acc": 0.819,
+        "budget": 0.6,
+        "allowed_budget": 1.0
+    },
+    "3": {
+        "model_path": "../models/in1k_CelebA_eps0.8.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.020,
+        "original_acc": 0.826,
+        "budget": 0.8,
+        "allowed_budget": 1.2
+    },
+    "5": {
+        "model_path": "../models/in1k_CelebA_eps1.0.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.020,
+        "original_acc": 0.831,
+        "budget": 1.0,
+        "allowed_budget": 1.4
+    },
+    "6": {
+        "model_path": "../models/in1k_CelebA_eps2.0.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.020,
+        "original_acc": 0.837,
+        "budget": 2.0,
+        "allowed_budget": 2.4
+    }
+}

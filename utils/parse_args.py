@@ -17,13 +17,15 @@ class ModelArguments:
     """
 
     task_type: str = field(
-        default="vision",
-        metadata={"help": "Task type. Choice: text, vision"},
+        default="vision_resnet",
+        metadata={"help": "Task type. Choice: text, vision_vit, vision_resnet"},
     )
     # For vision task
     model: str = field(
-        default="vit_large_patch16_224",
-        metadata={"help": "Vision model name"},
+        default="resnet152.tv2_in1k",
+        metadata={
+            "help": "Vision model name, Choices: resnet152.tv2_in1k, vit_large_patch16_224"
+        },
     )
     # For text task
     model_ids: Optional[str] = field(
@@ -118,7 +120,7 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
     )
     # For vision task
     dataset_name: Optional[str] = field(
-        default="CIFAR100",
+        default="CelebA",
         metadata={"help": "The name of the dataset that the model is trained on"},
     )
 

@@ -45,12 +45,13 @@ from transformers import Trainer
 
 
 def evaluate(
-    model_storage,
-    model_id: int,
-    model_constitution: list[int],
-    data_args: DynamicDataTrainingArguments,
-    model_args: ModelArguments,
-    training_args: DynamicTrainingArguments,
+    data_args,
+    model_args,
+    training_args,
+    model_info,
+    model_constitution=None,
+    model_storage=None,
+    model_id=None,
     blocks: np.array = None,
 ):
     # Add some additional arguments to make it work

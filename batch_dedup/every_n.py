@@ -183,7 +183,8 @@ def deduplicate_blocks(
             acc = eval_fn(
                 data_args,
                 model_args,
-                model_info["model_path"],
+                training_args,
+                model_info,
                 temp_constitution,
                 model_storage,
                 model_id,
@@ -231,7 +232,8 @@ def deduplicate_blocks(
     acc = eval_fn(
         data_args,
         model_args,
-        model_info["model_path"],
+        training_args,
+        model_info,
         temp_constitution,
         model_storage,
         model_id,

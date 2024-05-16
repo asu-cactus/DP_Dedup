@@ -4,6 +4,8 @@ data/
 plots/
 outputs*/
 __pycache__/
+wandb/
+results/
 
 evaluate_separately.py
 test_eval.py

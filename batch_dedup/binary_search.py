@@ -12,7 +12,7 @@ def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args.task_type)
 
-    base_model, _, _ = load_model(models_info[0], model_args)
+    base_model = load_model(models_info[0], model_args)[0]
     # Block model
     base_model_storage = block_model_1d(base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
@@ -22,7 +22,7 @@ def run():
     blockss_from_base = set()
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
-        model, eval_fn, sensitivity_fn = load_model(model_info, model_args)
+        model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
@@ -34,6 +34,7 @@ def run():
             model_info,
             1,
             eval_fn,
+            train_fn,
             sensitivity_fn,
         )
         n_new_blocks, blocks_from_base = separate_blocks(
@@ -64,6 +65,7 @@ def deduplicate_blocks(
     model_info,
     model_id,
     eval_fn,
+    train_fn,
     sensitivity_fn,
     distance_metric="l1",
 ):
@@ -141,6 +143,7 @@ def deduplicate_blocks(
         acc_threshold,
         dedup_indices,
         eval_fn,
+        train_fn,
     )
 
     # Deduplicate all-zero sensitivity blocks
@@ -207,6 +210,7 @@ def recursive_deduplicate(
     acc_threshold,
     dedup_indices,
     eval_fn,
+    train_fn,
 ):
 
     # Base case
@@ -265,6 +269,15 @@ def recursive_deduplicate(
         dedup_indices |= tobe_dedup_indices
         model_constitution = temp_constitution
         success = True
+        train_fn(
+            data_args,
+            model_args,
+            training_args,
+            model_info,
+            temp_constitution,
+            model_storage,
+            1,
+        )
 
     print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")
@@ -283,6 +296,7 @@ def recursive_deduplicate(
             acc_threshold,
             dedup_indices,
             eval_fn,
+            train_fn,
         )
 
     if success or n_dedup_left > len(left_seq) // 2:
@@ -299,6 +313,7 @@ def recursive_deduplicate(
             acc_threshold,
             dedup_indices,
             eval_fn,
+            train_fn,
         )
         if success:
             return len(left_seq) + n_dedup_right, model_constitution

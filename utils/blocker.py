@@ -38,7 +38,6 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
     for i, (name, params) in enumerate(iterator):
         if skip_embeds and "embeddings" in name:
             continue
-        # params.requires_grad = False
         params = params.detach().cpu()
 
         # No deduplicating 1-d vectors (mostly bias)
@@ -172,7 +171,13 @@ def reconstruct_weight(model_storage, model, model_id, model_constitution: list[
     """Reconstruct a model weights from a given model storage object."""
     model_start_point = model_storage["model_range"][model_id]
     blocks = model_storage["blocks"]
-    reconstruct_weight_helper(model, blocks, model_start_point, model_constitution)
+    reconstruct_weight_helper(
+        model,
+        blocks,
+        model_start_point,
+        model_constitution,
+        untouched_weights=model_storage["untouch_weights"][model_id],
+    )
 
 
 def reconstruct_weight_helper(
@@ -180,17 +185,16 @@ def reconstruct_weight_helper(
     blocks,
     model_start_point,
     model_constitution,
+    untouched_weights=None,
 ):
     start_idx = 0
     non_bias_idx = 0
 
-    for _, params in enumerate(model.parameters()):
-        params.requires_grad = False
+    for name, params in model.named_parameters():
+        params.requires_grad_(False)
         if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
-            # if params.dim() == 1:
-            # For now, assume the models are loaded from original storage
-            # So no need to reconstruct bias from model_storage
-            # TODO: load from model_storage
+            if untouched_weights is not None:
+                params.copy_(torch.from_numpy(untouched_weights[name]))
             continue
         # Reconstruct weights
         numel = params.numel()

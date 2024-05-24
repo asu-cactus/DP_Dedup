@@ -16,6 +16,10 @@ def merge_model_storage(base_model_storage, curr_model_storage):
     return {
         "blocks": blocks,
         "model_range": model_range,
+        "untouch_weights": [
+            base_model_storage["untouch_weights"],
+            curr_model_storage["untouch_weights"],
+        ],
     }
 
 
@@ -55,6 +59,7 @@ def load_model(model_info, model_args):
         elif model_info["task_name"] == "CelebA":
             num_classes = 40
         from vision_task_utils.evaluate import evaluate as eval_fn
+        from vision_task_utils.train import train as train_fn
         from utils.vision_model_sensitivity import (
             get_block_sensitivity as sensitivity_fn,
         )
@@ -72,7 +77,7 @@ def load_model(model_info, model_args):
     else:
         raise ValueError(f"Invalid task type: {model_args.task_type}")
 
-    return model, eval_fn, sensitivity_fn
+    return model, eval_fn, train_fn, sensitivity_fn
 
 
 def load_vision_dateset(data_args):

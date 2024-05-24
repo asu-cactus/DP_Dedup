@@ -20,7 +20,7 @@ def get_block_sensitivity(
     model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
     dataset = load_vision_dateset(data_args)
-    model, _, _ = load_model(model_info, model_args)
+    model = load_model(model_info, model_args)[0]
 
     if measure == "magnitude":
         blocks = magnitute_sensitivity(model)

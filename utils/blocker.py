@@ -13,8 +13,8 @@ from text_task_utils.models import RobertaForPromptFinetuning
 # BLOCKSIZE = 589824  # 768 * 768 for base models and 1024 * 576 for large models
 
 # BLock size for vision models
-# BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
-BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
+BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
+# BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
 
 
 def block_model_1d(model_or_paramdict, skip_embeds=False):

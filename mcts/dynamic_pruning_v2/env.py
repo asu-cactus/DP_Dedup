@@ -3,8 +3,6 @@ from bisect import bisect
 from dataclasses import dataclass
 import pdb
 
-from text_task_utils.evaluate import evaluate
-
 
 @dataclass
 class Action:
@@ -33,6 +31,13 @@ class State:
         self.models_storage = models_storage
 
         self.model_range = self.models_storage["model_range"]
+        if model_args.task_type == "text":
+            from text_task_utils.evaluate import evaluate
+        elif model_args.task_type.startswtih("vision"):
+            from vision_task_utils.evaluate import evaluate
+        else:
+            raise ValueError(f"Unknown task type: {model_args.task_type}")
+        self.eval_fn = evaluate
 
         # Get contained_model_ids and remaining_budgets, used for repeated legal action check.
         allowed_budgets = [info["allowed_budget"] for info in self.models_info]

@@ -269,15 +269,16 @@ def recursive_deduplicate(
         dedup_indices |= tobe_dedup_indices
         model_constitution = temp_constitution
         success = True
-        train_fn(
-            data_args,
-            model_args,
-            training_args,
-            model_info,
-            temp_constitution,
-            model_storage,
-            1,
-        )
+        if training_args.do_finetune:
+            train_fn(
+                data_args,
+                model_args,
+                training_args,
+                model_info,
+                temp_constitution,
+                model_storage,
+                1,
+            )
 
     print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")

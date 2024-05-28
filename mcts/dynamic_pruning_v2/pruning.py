@@ -7,8 +7,6 @@ from time import time
 
 import numpy as np
 
-from text_task_utils.evaluate import evaluate
-from sensitivity_measure import get_block_sensitivity
 
 # @dataclass
 # class ActionInfo:
@@ -59,6 +57,13 @@ def get_acc_after_dedup(
     The result is a dictionary, where the key is the block index, and the value is another dictionary,
     where the key is the block index of the candidate block, and the value is the accuracy after deduplication.
     """
+    if model_args.task_type == "text":
+        from text_task_utils.evaluate import evaluate
+    elif model_args.task_type.startswith("vision"):
+        from vision_task_utils.evaluate import evaluate
+    else:
+        raise ValueError(f"Unknown task_type: {model_args.task_type}")
+
     models_range = models_storage["model_range"]
     blocks = models_storage["blocks"]
     # top_k = training_args.top_k
@@ -166,11 +171,17 @@ def get_heuristic_info(
 ) -> dict[int, dict[int, tuple[int, float]]]:
     """Get the heuristic information for the MCTS."""
 
+    if model_args.task_type == "text":
+        from utils.text_model_sensitivity import get_block_sensitivity
+    elif model_args.task_type.startswith("vision"):
+        from utils.vision_model_sensitivity import get_block_sensitivity
+    else:
+        raise ValueError(f"Unknown task_type: {model_args.task_type}")
     # Get file name
     if training_args.orderby == "l2_norm":
-        file_name = "all_legal_actions_l2.pkl"
+        file_name = f"all_legal_actions_l2_{model_args.task_type}.pkl"
     elif training_args.orderby == "3rd_quantile":
-        file_name = "all_legal_actions_3rd.pkl"
+        file_name = f"all_legal_actions_3rd_{model_args.task_type}.pkl"
     else:
         raise ValueError(f"Unknown training_args.orderby: {training_args.orderby}")
 
@@ -212,6 +223,7 @@ def get_heuristic_info(
 
             # The following lines order the blocks by sensitivity measure
             model_info = models_info[i]
+
             model_blocks, _ = get_block_sensitivity(
                 model_info["task_name"],
                 training_args.sensitivity_measure,

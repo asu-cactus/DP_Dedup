@@ -53,7 +53,7 @@ def train(
 
     # Apply Privacy Engine
     epochs = 2
-    target_epsilon = 0.2
+    target_epsilon = 0.1
     sigma = get_noise_multiplier(
         target_epsilon=target_epsilon,
         target_delta=1 / len(trainset),

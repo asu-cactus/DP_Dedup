@@ -17,23 +17,10 @@ class ModelArguments:
     """
 
     task_type: str = field(
-        default="vision_vit",
         metadata={"help": "Task type. Choice: text, vision_vit, vision_resnet"},
     )
-    # For vision task
-    model: str = field(
-        default="vit_large_patch16_224",
-        metadata={
-            "help": "Vision model name, Choices: resnet152.tv2_in1k, vit_large_patch16_224"
-        },
-    )
+
     # For text task
-    model_ids: Optional[str] = field(
-        default="",
-        metadata={
-            "help": "Model ID to identify the model. Should be numbers separated by comma, e.g., 0,2,3"
-        },
-    )
     model_name_or_path: Optional[str] = field(
         default="",
         metadata={
@@ -118,14 +105,8 @@ class DynamicDataTrainingArguments(DataTrainingArguments):
             "help": "The input data dir. Not used in the script, just make the script works"
         },
     )
-    # For vision task
-    dataset_name: Optional[str] = field(
-        default="CIFAR100",
-        metadata={
-            "help": "The name of the dataset that the model is trained on, choice: CIFAR100, CelebA"
-        },
-    )
 
+    # Original settings
     num_k: Optional[int] = field(
         default=1, metadata={"help": "Number of training instances per class"}
     )
@@ -298,6 +279,12 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Output directory"},
     )
 
+    # For fine-tuning during deduplication
+    do_finetune: bool = field(
+        default=False,
+        metadata={"help": "Whether to fine-tune the model during deduplication"},
+    )
+
     # For batch deduplication (used in every_n.py)
     every_n: int = field(
         default=10,
@@ -307,16 +294,6 @@ class DynamicTrainingArguments(TrainingArguments):
     min_dedup_len: int = field(
         default=10,
         metadata={"help": "Minimum number of blocks to deduplicate"},
-    )
-
-    # For vision task
-    bs: int = field(
-        default=500,
-        metadata={"help": "Batch size"},
-    )
-    mini_bs: int = field(
-        default=50,
-        metadata={"help": "Mini-batch size"},
     )
 
     # For heuristics
@@ -448,6 +425,16 @@ def parse_args():
         )
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    if model_args.task_type == "vision_vit":
+        model_args.model = "vit_large_patch16_224"
+        data_args.dataset_name = "CIFAR100"
+        training_args.bs = 500
+        training_args.mini_bs = 50
+    elif model_args.task_type == "vision_resnet":
+        model_args.model = "resnet152.tv2_in1k"
+        data_args.dataset_name = "CelebA"
+        training_args.bs = 500
+        training_args.mini_bs = 50
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

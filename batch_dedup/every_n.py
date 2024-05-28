@@ -196,15 +196,16 @@ def deduplicate_blocks(
                 dedup_indices |= tobe_dedup_indices
                 used_allzero_indices |= used_allzero_indices_temp
                 model_constitution = temp_constitution
-                train_fn(
-                    data_args,
-                    model_args,
-                    training_args,
-                    model_info,
-                    temp_constitution,
-                    model_storage,
-                    model_id,
-                )
+                if training_args.do_finetune:
+                    train_fn(
+                        data_args,
+                        model_args,
+                        training_args,
+                        model_info,
+                        temp_constitution,
+                        model_storage,
+                        model_id,
+                    )
             tobe_dedup_indices = set()
             used_allzero_indices_temp = set()
             temp_constitution = model_constitution.copy()

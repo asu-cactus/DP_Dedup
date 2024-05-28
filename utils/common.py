@@ -53,6 +53,8 @@ def load_model(model_info, model_args):
         from text_task_utils.evaluate import evaluate as eval_fn
         from utils.text_model_sensitivity import get_block_sensitivity as sensitivity_fn
 
+        model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])
+
     elif "vision" in model_args.task_type:
         if model_info["task_name"] == "CIFAR100":
             num_classes = 100
@@ -63,19 +65,24 @@ def load_model(model_info, model_args):
         from utils.vision_model_sensitivity import (
             get_block_sensitivity as sensitivity_fn,
         )
-    else:
-        raise ValueError(f"Invalid task name: {model_args.task_type}")
 
-    if model_args.task_type == "text":
-        model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])
-    elif "vision" in model_args.task_type:
         model = timm.create_model(
             model_args.model, pretrained=True, num_classes=num_classes
         )
         model = ModuleValidator.fix(model)
         model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
+
+    elif model_args.task_type == "recommendation":
+        from recommendation_task_utils.evaluate import load_model
+        from recommendation_task_utils.evaluate import evaluate as eval_fn
+        from recommendation_task_utils.train import train as train_fn
+        from utils.recommender_sensitivity import (
+            get_block_sensitivity as sensitivity_fn,
+        )
+
+        model = load_model(model_info["model_path"])
     else:
-        raise ValueError(f"Invalid task type: {model_args.task_type}")
+        raise ValueError(f"Invalid task name: {model_args.task_type}")
 
     return model, eval_fn, train_fn, sensitivity_fn
 

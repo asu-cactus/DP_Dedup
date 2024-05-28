@@ -12,6 +12,8 @@ def load_models_info(task_type) -> list[dict]:
         model_info_path = "models/model_info_vision_vit.json"
     elif task_type == "vision_resnet":
         model_info_path = "models/model_info_vision_resnet.json"
+    elif task_type == "recommendation":
+        model_info_path = "models/model_info_recommendation.json"
     else:
         raise ValueError(f"Invalid task type: {task_type}")
 

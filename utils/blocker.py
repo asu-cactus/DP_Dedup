@@ -12,9 +12,12 @@ from text_task_utils.models import RobertaForPromptFinetuning
 # BLOCKSIZE = 196608  # 768 * 256 for base models and 1024 * 192 for large models
 # BLOCKSIZE = 589824  # 768 * 768 for base models and 1024 * 576 for large models
 
-# BLock size for vision models
+# Block size for vision models
 # BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
-BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
+# BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
+
+# Block size for recommendation models
+BLOCKSIZE = 131072  # 256 * 512 for recommendation models
 
 
 def block_model_1d(model_or_paramdict, skip_embeds=False):
@@ -170,10 +173,9 @@ def get_blocks(
 def reconstruct_weight(model_storage, model, model_id, model_constitution: list[int]):
     """Reconstruct a model weights from a given model storage object."""
     model_start_point = model_storage["model_range"][model_id]
-    blocks = model_storage["blocks"]
     reconstruct_weight_helper(
         model,
-        blocks,
+        model_storage["blocks"],
         model_start_point,
         model_constitution,
         untouched_weights=model_storage["untouch_weights"][model_id],

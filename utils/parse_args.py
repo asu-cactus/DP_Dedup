@@ -435,6 +435,9 @@ def parse_args():
         data_args.dataset_name = "CelebA"
         training_args.bs = 500
         training_args.mini_bs = 50
+    elif model_args.task_type == "recommendation":
+        training_args.bs = 512
+        training_args.mini_bs = 64
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

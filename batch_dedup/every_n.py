@@ -215,7 +215,8 @@ def deduplicate_blocks(
     # Deduplicate all-zero sensitivity blocks
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
-
+    if len(allzerograd_seq) == 0:
+        return model_constitution
     # Start deduplication
     temp_constitution = model_constitution.copy()
     for i in allzerograd_seq:

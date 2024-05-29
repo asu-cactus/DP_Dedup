@@ -310,7 +310,7 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For MCTS
     n_episodes: int = field(
-        default=10000,
+        default=1000,
         metadata={"help": "Number of episodes for MCTS"},
     )
     save_every: int = field(

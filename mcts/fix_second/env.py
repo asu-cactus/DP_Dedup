@@ -29,11 +29,7 @@ class State:
         str_repr = ",".join([str(block) for block in self.model_constitution])
         return str_repr
 
-    def _get_game_end(
-        self,
-        # action: int,
-        new_constitution: list[int],
-    ) -> bool:
+    def _get_game_end(self, new_constitution: list[int]) -> bool:
         """
         The games ends when the utility drop is greater than the threshold.
         If the game is ended, return the number of blocks that are deduped devided by number of total blocks.
@@ -55,9 +51,21 @@ class State:
             )
             < model_info["original_acc"] - model_info["acc_drop_threshold"]
         ):
+            print(f"Model constitution after dedup: {self.model_constitution}")
             return True
         else:
+            print(f"Model constitution after dedup: {new_constitution}")
             return False
+
+    def _compute_return_value(self, is_game_end: bool):
+
+        eval_every = self.training_args.eval_every
+        total = len(self.model_constitution)
+        if is_game_end:
+            return_value = 1 - (len(self.avail_actions) + eval_every) / total
+        else:
+            return_value = 1 - len(self.avail_actions) / total
+        return return_value
 
     def next_state(
         self,
@@ -76,20 +84,14 @@ class State:
         # Check if game is ended, if games ends, return
         return_value = -1
         if steps_before_eval == 0:
-
             s = self.__str__()
             sa = f"{s}_{action}"
             if sa in Es:
                 is_game_end, return_value = Es[sa]
             else:
                 is_game_end = self._get_game_end(new_constitution)
-                return_value = 1 - len(self.avail_actions) / len(new_constitution)
-                # if is_game_end:
-                #     return_value = 1 - len(self.avail_actions) / len(new_constitution)
-                # else:
-                #     return_value = 1 - (len(self.avail_actions) - 1) / len(
-                #         new_constitution
-                #     )
+                # return_value = 1 - len(self.avail_actions) / len(new_constitution)
+                return_value = self._compute_return_value(is_game_end)
                 Es[sa] = (is_game_end, return_value)
 
             if is_game_end:
@@ -97,6 +99,10 @@ class State:
 
         # Update avail_actions
         avail_actions = [a for a in self.avail_actions if a != action]
+        if len(avail_actions) == 0:  # No more actions can be taken
+            is_game_end = self._get_game_end(new_constitution)
+            return_value = self._compute_return_value(is_game_end)
+            return None, return_value
 
         next_s = State(
             new_constitution,

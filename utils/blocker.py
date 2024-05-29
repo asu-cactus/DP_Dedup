@@ -13,11 +13,11 @@ from text_task_utils.models import RobertaForPromptFinetuning
 # BLOCKSIZE = 589824  # 768 * 768 for base models and 1024 * 576 for large models
 
 # Block size for vision models
-# BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
+BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
 # BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
 
-# Block size for recommendation models
-BLOCKSIZE = 131072  # 256 * 512 for recommendation models
+# # Block size for recommendation models
+# BLOCKSIZE = 131072  # 256 * 512 for recommendation models
 
 
 def block_model_1d(model_or_paramdict, skip_embeds=False):
@@ -128,7 +128,6 @@ def get_blocks(
     # Load blocks from blocks_path
     for ith_model, model_path in enumerate(model_paths):
         model = RobertaForPromptFinetuning.from_pretrained(model_path)
-
         model_storage = block_model_1d(model)
 
         # Merge blocks
@@ -173,6 +172,7 @@ def get_blocks(
 def reconstruct_weight(model_storage, model, model_id, model_constitution: list[int]):
     """Reconstruct a model weights from a given model storage object."""
     model_start_point = model_storage["model_range"][model_id]
+
     reconstruct_weight_helper(
         model,
         model_storage["blocks"],

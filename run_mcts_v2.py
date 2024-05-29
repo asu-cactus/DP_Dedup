@@ -1,7 +1,7 @@
 import os
 
 os.environ["WANDB_DISABLED"] = "true"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["TQDM_DISABLE"] = "1"
 
 import pdb
@@ -68,6 +68,8 @@ def run():
             if steps2fail == training_args.eval_every - 1:
                 n_dedup_blocks = 0
             else:
+                if v == -1:
+                    v = 1
                 n_dedup_blocks = round(v * original_num_blocks)
             print(f"Episode {i} number of dedup blocks: {n_dedup_blocks}\n")
 
@@ -75,6 +77,8 @@ def run():
                 max_v = v
                 with open(f"{training_args.output_dir}/best_value.txt", "a") as f:
                     f.write(f"Episode {i}: {n_dedup_blocks}\n")
+            if v == 1:  # all blocks can be deduplicated
+                break
 
         n_new_blocks = original_num_blocks - round(max_v * original_num_blocks)
         print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}")

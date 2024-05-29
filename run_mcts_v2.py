@@ -1,6 +1,10 @@
-import pdb
+import os
 
-import numpy as np
+os.environ["WANDB_DISABLED"] = "true"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["TQDM_DISABLE"] = "1"
+
+import pdb
 
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
@@ -14,28 +18,39 @@ def run():
     models_info = load_models_info(model_args.task_type)
     # model_paths = [info["model_path"] for info in models_info]
 
+    if model_args.task_type == "text":
+        from text_task_utils.evaluate import evaluate as eval_fn
+
+    elif model_args.task_type.startswith("vision"):
+        from vision_task_utils.evaluate import evaluate as eval_fn
+        from vision_task_utils.train import train as train_fn
+    elif model_args.task_type == "recommendation":
+        from recommendation_task_utils.evaluate import evaluate as eval_fn
+        from recommendation_task_utils.train import train as train_fn
+    else:
+        raise ValueError(f"Unknown task type: {model_args.task_type}")
+
     base_model = load_model(models_info[0], model_args)[0]
     base_model_storage = block_model_1d(base_model)
-    n_base_blocks = base_model_storage["blocks"].shape[0]
+    # n_base_blocks = base_model_storage["blocks"].shape[0]
 
     total_new_blocks = 0
-    blockss_from_base = set()
+    # blockss_from_base = set()
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
-        model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
+        model = load_model(model_info, model_args)[0]
         curr_model_storage = block_model_1d(model)
-        model_storage = merge_model_storage(base_model_storage, curr_model_storage)
+        models_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
         mcts = MCTS(
             model_args,
             data_args,
             training_args,
-            model,
+            # model,
             model_info,
-            model_storage,
+            models_storage,
             eval_fn,
             train_fn,
-            sensitivity_fn,
         )
 
         max_v = 0
@@ -65,3 +80,7 @@ def run():
         print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}")
         total_new_blocks += n_new_blocks
     print(f"\n{total_new_blocks=}")
+
+
+if __name__ == "__main__":
+    run()

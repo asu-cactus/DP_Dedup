@@ -10,7 +10,7 @@
     "1": {
         "model_path": "../models/movielens_eps0.4.pt",
         "task_name": "MovieLens",
-        "acc_drop_threshold": 0.0005,
+        "acc_drop_threshold": 0.0004,
         "original_acc": 0.8712,
         "budget": 0.4,
         "allowed_budget": 0.6
@@ -18,7 +18,7 @@
     "2": {
         "model_path": "../models/movielens_eps0.8.pt",
         "task_name": "MovieLens",
-        "acc_drop_threshold": 0.0002,
+        "acc_drop_threshold": 0.0001,
         "original_acc": 0.8714,
         "budget": 0.8,
         "allowed_budget": 1.0
@@ -26,7 +26,7 @@
     "3": {
         "model_path": "../models/movielens_eps2.0.pt",
         "task_name": "MovieLens",
-        "acc_drop_threshold": 0.0003,
+        "acc_drop_threshold": 0.0002,
         "original_acc": 0.8717,
         "budget": 2.0,
         "allowed_budget": 2.2
@@ -34,7 +34,7 @@
     "4": {
         "model_path": "../models/movielens_eps4.0.pt",
         "task_name": "MovieLens",
-        "acc_drop_threshold": 0.0002,
+        "acc_drop_threshold": 0.0001,
         "original_acc": 0.8719,
         "budget": 4.0,
         "allowed_budget": 4.2

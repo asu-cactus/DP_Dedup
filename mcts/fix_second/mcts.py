@@ -1,20 +1,13 @@
 import math
-import pickle
-import os
 from copy import deepcopy
 from random import choice, random
 from collections import defaultdict
 import pdb
 
-from mcts.dynamic_pruning_v2.env import State, Action
-from mcts.dynamic_pruning_v2.pruning import get_heuristic_info
+from mcts.fix_second.env import State
 
 
 class MCTS:
-    """
-    MCTS with action pruning.
-    """
-
     def __init__(
         self,
         model_args,
@@ -22,34 +15,40 @@ class MCTS:
         training_args,
         model_info,
         models_storage,
+        eval_fn,
+        train_fn,
     ):
         self.model_args = model_args
         self.data_args = data_args
         self.training_args = training_args
         self.model_info = model_info
         self.models_storage = models_storage
+        self.eval_fn = eval_fn
+        self.train_fn = train_fn
 
         self.Qsa = defaultdict(int)  # stores Q values for s,a (as defined in the paper)
         self.Nsa = defaultdict(int)  # stores #times edge s,a was visited
         self.Ns = defaultdict(int)  # stores #times board s was visited
 
         self.Es = {}  # stores return value if is terminal, 0 otherwise
-        if training_args.resume:
-            self._resume()
 
     def initial_episode(self):
-        total_blocks = self.models_storage["model_range"][-1]
-        models_constitution = list(range(total_blocks))
-        all_legal_actions = deepcopy(self.all_legal_actions)
+        model_start = self.models_storage["model_range"][1]
+        model_end = self.models_storage["model_range"][2]
+        model_constitution = list(range(model_start, model_end))
+        assert len(model_constitution) == self.models_storage["blocks"].shape[0] // 2
 
+        avail_actions = model_constitution.copy()
         return State(
-            models_constitution,
-            all_legal_actions,
+            model_constitution,
+            avail_actions,
             self.model_args,
             self.data_args,
             self.training_args,
             self.model_info,
             self.models_storage,
+            self.eval_fn,
+            self.train_fn,
         )
 
     # def _default_policy(self, legal_actions: list[Action]):
@@ -83,7 +82,7 @@ class MCTS:
 
         # Selection, Expansion, Simulation, Backpropagation
         first_expanded = False
-        legal_actions = state.legal_actions(fanout)
+        legal_actions = state.avail_actions
         if outside_tree:
             # simulation
             a = choice(legal_actions)
@@ -92,7 +91,7 @@ class MCTS:
             best_u = -float("inf")
             best_a = -1
             for a in legal_actions:
-                sa = f"{s}_{a.block_2b_replaced}"
+                sa = f"{s}_{a}"
                 if sa in self.Qsa:
                     u = self.Qsa[sa] + self.training_args.cprod * math.sqrt(
                         math.log(self.Ns[s]) / (self.Nsa[sa])
@@ -117,12 +116,9 @@ class MCTS:
         next_s, curr_v = state.next_state(a, steps_before_eval, self.Es)
 
         if next_s is not None:
-            # If game is not ended, recursively search to get the return value; gradually increase fanout
+            # If game is not ended, recursively search to get the return value;
             steps_before_eval -= 1
-            fanout += 1
-            v, steps_to_fail = self.search(
-                next_s, fanout, outside_tree, steps_before_eval
-            )
+            v, steps_to_fail = self.search(next_s, outside_tree, steps_before_eval)
         else:
             # If game is ended, return the return value
             # curr_v should not be used, because it is a failed case.
@@ -135,7 +131,7 @@ class MCTS:
         if steps_to_fail >= self.training_args.eval_every:
             # print("Update nodes")
             if first_expanded or not outside_tree:
-                sa = f"{s}_{a.block_2b_replaced}"
+                sa = f"{s}_{a}"
                 self.Nsa[sa] += 1
                 self.Ns[s] += 1
                 self.Qsa[sa] += (v - self.Qsa[sa]) / self.Nsa[sa]

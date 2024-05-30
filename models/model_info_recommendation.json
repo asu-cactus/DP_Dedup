@@ -3,7 +3,7 @@
         "model_path": "../models/rcv1-2k_eps0.5.pt",
         "task_name": "rcv1-2k",
         "acc_drop_threshold": 0.0,
-        "original_acc": 0.8354,
+        "original_acc": 0.8448,
         "budget": 0.5,
         "allowed_budget": 0.5
     },
@@ -11,7 +11,7 @@
         "model_path": "../models/rcv1-2k_eps1.0.pt",
         "task_name": "rcv1-2k",
         "acc_drop_threshold": 0.01,
-        "original_acc": 0.8486,
+        "original_acc": 0.8659,
         "budget": 1.0,
         "allowed_budget": 1.5
     },
@@ -19,7 +19,7 @@
         "model_path": "../models/rcv1-2k_eps2.0.pt",
         "task_name": "rcv1-2k",
         "acc_drop_threshold": 0.01,
-        "original_acc": 0.8620,
+        "original_acc": 0.8784,
         "budget": 2.0,
         "allowed_budget": 2.5
     },
@@ -27,16 +27,16 @@
         "model_path": "../models/rcv1-2k_eps4.0.pt",
         "task_name": "rcv1-2k",
         "acc_drop_threshold": 0.01,
-        "original_acc": 0.8720,
+        "original_acc": 0.8857,
         "budget": 4.0,
         "allowed_budget": 4.5
     },
     "4": {
-        "model_path": "../models/rcv1-2k_eps16.0.pt",
+        "model_path": "../models/rcv1-2k_eps8.0.pt",
         "task_name": "rcv1-2k",
         "acc_drop_threshold": 0.01,
-        "original_acc": 0.8860,
-        "budget": 16.0,
-        "allowed_budget": 16.5
+        "original_acc": 0.8966,
+        "budget": 8.0,
+        "allowed_budget": 8.5
     }
 }

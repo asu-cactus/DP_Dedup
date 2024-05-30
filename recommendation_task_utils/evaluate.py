@@ -7,6 +7,7 @@ from opacus.accountants.utils import get_noise_multiplier
 import warnings
 import os
 import time
+import pdb
 
 from utils.blocker import reconstruct_weight, reconstruct_weight_helper
 
@@ -94,9 +95,9 @@ def load_dataset(training_args):
     testloader = DataLoader(
         ds_test, batch_size=training_args.mini_bs, shuffle=False, num_workers=4
     )
-    # val_size = len(ds_test)
+    test_size = len(ds_test)
     # return (trainloader, testloader, val_size)
-    return testloader
+    return testloader, test_size
 
 
 def load_model(model_path):
@@ -140,8 +141,8 @@ def evaluate(
     model_id=None,
     blocks=None,
 ):
-    testloader = load_dataset(training_args)
-    model = load_model(model_info)
+    testloader, test_size = load_dataset(training_args)
+    model = load_model(model_info["model_path"])
 
     if model_constitution:
         if blocks is None:

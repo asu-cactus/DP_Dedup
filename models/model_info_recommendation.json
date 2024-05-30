@@ -1,42 +1,42 @@
 {
     "0": {
-        "model_path": "../models/rcv1-2k_eps0.2.pt",
+        "model_path": "../models/rcv1-2k_eps0.5.pt",
         "task_name": "rcv1-2k",
-        "acc_drop_threshold": 0.0001,
-        "original_acc": 0.8707,
-        "budget": 0.2,
-        "allowed_budget": 0.2
+        "acc_drop_threshold": 0.0,
+        "original_acc": 0.8354,
+        "budget": 0.5,
+        "allowed_budget": 0.5
     },
     "1": {
-        "model_path": "../models/rcv1-2k_eps0.6.pt",
-        "task_name": "rcv1-2k",
-        "acc_drop_threshold": 0.0001,
-        "original_acc": 0.8711,
-        "budget": 0.6,
-        "allowed_budget": 0.8
-    },
-    "2": {
         "model_path": "../models/rcv1-2k_eps1.0.pt",
         "task_name": "rcv1-2k",
-        "acc_drop_threshold": 0.0001,
-        "original_acc": 0.8714,
+        "acc_drop_threshold": 0.01,
+        "original_acc": 0.8486,
         "budget": 1.0,
-        "allowed_budget": 1.2
+        "allowed_budget": 1.5
     },
-    "3": {
+    "2": {
         "model_path": "../models/rcv1-2k_eps2.0.pt",
         "task_name": "rcv1-2k",
-        "acc_drop_threshold": 0.0001,
-        "original_acc": 0.8717,
+        "acc_drop_threshold": 0.01,
+        "original_acc": 0.8620,
         "budget": 2.0,
-        "allowed_budget": 2.2
+        "allowed_budget": 2.5
     },
-    "4": {
+    "3": {
         "model_path": "../models/rcv1-2k_eps4.0.pt",
         "task_name": "rcv1-2k",
-        "acc_drop_threshold": 0.0001,
-        "original_acc": 0.8719,
+        "acc_drop_threshold": 0.01,
+        "original_acc": 0.8720,
         "budget": 4.0,
-        "allowed_budget": 4.2
+        "allowed_budget": 4.5
+    },
+    "4": {
+        "model_path": "../models/rcv1-2k_eps16.0.pt",
+        "task_name": "rcv1-2k",
+        "acc_drop_threshold": 0.01,
+        "original_acc": 0.8860,
+        "budget": 16.0,
+        "allowed_budget": 16.5
     }
 }

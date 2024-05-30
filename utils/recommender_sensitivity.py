@@ -6,22 +6,21 @@ import torch.nn.functional as F
 from utils.blocker import block_model_1d
 from utils.parse_args import parse_args
 from utils.common import load_model
-from recommendation_task_utils.evaluate import prepare_data
+from recommendation_task_utils.evaluate import load_dataset
 
 
-def get_block_sensitivity(model_info, measure, **args):
+def get_block_sensitivity(model_info, measure, skip_embeds, return_n_embed_blocks):
     model_args, data_args, training_args = parse_args()
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
-    val_loader, val_size = prepare_data(training_args)
+    val_loader, val_size = load_dataset(training_args)
     model = load_model(model_info, model_args)[0]
 
     if measure == "magnitude":
         blocks = magnitute_sensitivity(model)
     elif measure == "fisher":
-        raise ValueError("Fisher sensitivity is not implemented.")
-        # blocks = fisher_sensitity(model, val_loader, val_size)
+        blocks = fisher_sensitity(model, val_loader, val_size)
     elif measure == "gradient":
         blocks = gradient_sensitity(model, val_loader, val_size)
     else:
@@ -78,32 +77,19 @@ def fisher_sensitity(model, val_loader, val_size):
     return blocks
 
 
-def gradient_sensitity(
-    model,
-    val_loader,
-    val_size,
-    batch_size=32,
-    sample_size=None,
-):
+def gradient_sensitity(model, val_loader, val_size):
     model.eval()
     model.cuda()
 
-    if sample_size is None:
-        sample_size = val_size
+    sample_size = val_size
+    accum_iter = sample_size / val_loader.batch_size
 
-    testloader = val_loader
-
-    criterion = torch.nn.MSELoss()
-    accum_iter = sample_size / batch_size
-
-    for batch_idx, valid_data in enumerate(testloader):
-        users = valid_data["users"].cuda()
-        movies = valid_data["movies"].cuda()
-        ratings = valid_data["ratings"].cuda()
-        outputs = model(users, movies)
-        # inputs, targets = inputs.cuda(), targets.cuda()
-        # outputs = model(inputs)
-        loss = criterion(outputs.squeeze(), ratings)
+    criterion = torch.nn.BCEWithLogitsLoss(reduction="none")
+    # correct, total = 0, 0
+    for inputs, targets in val_loader:
+        inputs, targets = inputs.cuda(), targets.cuda()
+        outputs = model(inputs)
+        loss = criterion(outputs, targets.float()).sum(dim=1).mean()
         loss = loss / accum_iter
         loss.backward()
 

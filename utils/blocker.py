@@ -17,7 +17,8 @@ from text_task_utils.models import RobertaForPromptFinetuning
 BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
 
 # # Block size for recommendation models
-# BLOCKSIZE = 131072  # 256 * 512 for recommendation models
+# BLOCKSIZE = 131072  # 256 * 512 for movielens models
+BLOCKSIZE = 1180000  # 236 * 5000 for rcv1 models
 
 
 def block_model_1d(model_or_paramdict, skip_embeds=False):

@@ -1,160 +1,133 @@
 from fastDP import PrivacyEngine
-import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from opacus.accountants.utils import get_noise_multiplier
 
+import warnings
+import os
+import time
+
 from utils.blocker import reconstruct_weight, reconstruct_weight_helper
 
-import warnings
-import time
-from collections import defaultdict
-import pdb
-
-torch.manual_seed(2)
 warnings.filterwarnings("ignore")
 
 
-class MovieLensDataset(Dataset):
-    """
-    The Movie Lens Dataset class. This class prepares the dataset for training and validation.
-    """
-
-    def __init__(self, users, movies, ratings):
-        """
-        Initializes the dataset object with user, movie, and rating data.
-        """
-        self.users = users
-        self.movies = movies
-        self.ratings = ratings
+class RecommendationDataset(Dataset):
+    def __init__(self, path):
+        with open(path, "r") as f:
+            self.lines = f.readlines()[1:]
+        self.num_features = 47236
+        self.num_labels = 5
+        self.nclasses = 500
 
     def __len__(self):
-        """
-        Returns the total number of samples in the dataset.
-        """
-        return len(self.users)
+        return len(self.lines)
 
-    def __getitem__(self, item):
-        """
-        Retrieves a sample from the dataset at the specified index.
-        """
-        users = self.users[item]
-        movies = self.movies[item]
-        ratings = self.ratings[item]
+    def __getitem__(self, idx):
+        elements = self.lines[idx].split(" ")
+        label_part = elements[0]
+        feature_parts = elements[1:]
 
-        return {
-            "users": torch.tensor([users], dtype=torch.long),
-            "movies": torch.tensor([movies], dtype=torch.long),
-            "ratings": torch.tensor(ratings, dtype=torch.float),
-        }
+        # Get labels
+        index_set = {int(val) // self.nclasses for val in label_part.split(",")}
+        index = torch.tensor(list(index_set))
+        labels = torch.zeros(self.num_labels, dtype=torch.long).scatter_(0, index, 1)
 
+        # Get features
+        features = torch.zeros(self.num_features, dtype=torch.float32)
+        for ft_pairs in feature_parts:
+            ft, ft_val = ft_pairs.split(":")
+            features[int(ft)] = float(ft_val)
 
-def prepare_data(training_args):
-    # df_train = pd.read_csv("data/ml-latest/ratings_train.csv", skiprows=1)
-    df_val = pd.read_csv("data/ml-latest/ratings_test.csv", skiprows=1)
-
-    # trainset = MovieLensDataset(
-    #     df_train.userId.values, df_train.movieId.values, df_train.rating.values
-    # )
-    validset = MovieLensDataset(
-        df_val.userId.values, df_val.movieId.values, df_val.rating.values
-    )
-
-    # train_loader = DataLoader(
-    #     trainset, batch_size=args.mini_bs, shuffle=True, num_workers=4
-    # )
-    val_loader = DataLoader(
-        validset, batch_size=training_args.mini_bs, shuffle=False, num_workers=4
-    )
-
-    val_size = len(validset)
-    # train_size = len(trainset)
-
-    print(f" Validation size: {val_size}")
-    return val_loader, val_size
+        # Return features and labels
+        return features, labels
 
 
-class RecommendationSystemModel(nn.Module):
-    def __init__(
-        self,
-        num_users,
-        num_movies,
-        embedding_size,
-        hidden_dim,
-        dropout_rate,
-    ):
+class LinearModel(nn.Module):
+    def __init__(self):
         super().__init__()
-        self.num_users = num_users
-        self.num_movies = num_movies
-        self.embedding_size = embedding_size
-        self.hidden_dim = hidden_dim
-
-        # Embedding layers
-        self.user_embedding = nn.Embedding(
-            num_embeddings=self.num_users, embedding_dim=self.embedding_size
-        )
-        self.movie_embedding = nn.Embedding(
-            num_embeddings=self.num_movies, embedding_dim=self.embedding_size
-        )
-
-        # Hidden layers
-        self.linear = nn.Sequential(
-            nn.Linear(self.embedding_size, self.hidden_dim),
+        self.model = nn.Sequential(
+            nn.Linear(47236, 5000),
             nn.ReLU(),
-            nn.Dropout(p=dropout_rate),
-            nn.Linear(self.hidden_dim, 1),
+            nn.Linear(5000, 5),
         )
 
-    def forward(self, users, movies):
-        # Embeddings
-        user_embedded = self.user_embedding(users)
-        movie_embedded = self.movie_embedding(movies)
-
-        # Concatenate user and movie embeddings
-        # combined = torch.cat([user_embedded, movie_embedded], dim=2)
-        combined = user_embedded + movie_embedded
-
-        # Pass through hidden layers with ReLU activation and dropout
-        output = self.linear(combined)
-
-        return output
+    def forward(self, x):
+        return self.model(x)
 
 
-def calculate_precision_recall(user_ratings, k, threshold):
-    user_ratings.sort(key=lambda x: x[0], reverse=True)
-    n_rel = sum(true_r >= threshold for _, true_r in user_ratings)
-    n_rec_k = sum(est >= threshold for est, _ in user_ratings[:k])
-    n_rel_and_rec_k = sum(
-        (true_r >= threshold) and (est >= threshold) for est, true_r in user_ratings[:k]
+# def obtain_dataset_info(path_to_train, path_to_test):
+#     """Obtain the dataset info from the given path, the data info is stored in the
+#     first line
+
+#     Args:
+#         path_to_train (str): path to the training data
+#         path_to_test (str): path to the testing data
+
+#     Returns:
+#         (int, int, int, int): number of training data, number of testing data,
+#                               number of features, number of labels
+#     """
+#     with open(path_to_train) as f:
+#         line = f.readline()
+#     num_train, num_features, num_labels = line.split(" ")
+#     num_labels = math.ceil(int(num_labels) / CLASS_SIZE)
+
+#     with open(path_to_test) as f:
+#         line = f.readline()
+#     num_test, _, _ = line.split(" ")
+
+#     return int(num_train), int(num_test), int(num_features), num_labels
+
+
+def load_dataset(training_args):
+    data_root = "data"
+    path_to_train = os.path.join(data_root, "RCV1-2K", "train.txt")
+    path_to_test = os.path.join(data_root, "RCV1-2K", "test.txt")
+
+    # ds_train = RecommendationDataset(path_to_train)
+    # trainloader = DataLoader(
+    #     ds_train, batch_size=training_args.mini_bs, shuffle=True, num_workers=4
+    # )
+    ds_test = RecommendationDataset(path_to_test)
+    testloader = DataLoader(
+        ds_test, batch_size=training_args.mini_bs, shuffle=False, num_workers=4
     )
-
-    precision = n_rel_and_rec_k / n_rec_k if n_rec_k != 0 else 1
-    recall = n_rel_and_rec_k / n_rel if n_rel != 0 else 1
-    f1 = (
-        2 * (precision * recall) / (precision + recall)
-        if precision + recall != 0
-        else 0
-    )
-    return f1
+    # val_size = len(ds_test)
+    # return (trainloader, testloader, val_size)
+    return testloader
 
 
 def load_model(model_path):
-    with open("data/ml-latest/ratings_test.csv", "r") as f:
-        line = f.readline()
-        segments = line.split(",")
-        num_users = int(segments[0])
-        num_movies = int(segments[1])
+    """Load a extreme classification model"""
 
-    model = RecommendationSystemModel(
-        num_users=num_users,
-        num_movies=num_movies,
-        embedding_size=256,
-        hidden_dim=256,
-        dropout_rate=0.1,
-    )
+    model = LinearModel()
     model.load_state_dict(torch.load(model_path, map_location="cpu"))
     return model
+    # optimizer = torch.optim.Adam(model.parameters(), lr=training_args.lr)
+
+    # # Privacy engine
+    # if "nonDP" not in training_args.clipping_mode:
+    #     sigma = get_noise_multiplier(
+    #         target_epsilon=training_args.epsilon,
+    #         target_delta=1 / datasize,
+    #         sample_rate=training_args.bs / datasize,
+    #         epochs=2,
+    #     )
+    #     print(f"adding noise level {sigma}")
+    #     privacy_engine = PrivacyEngine(
+    #         model,
+    #         batch_size=training_args.bs,
+    #         sample_size=training_args.num_train,
+    #         noise_multiplier=sigma,
+    #         epochs=2,
+    #         clipping_mode="MixOpt",
+    #         clipping_style="all-layer",
+    #     )
+    #     privacy_engine.attach(optimizer)
+
+    # return model, optimizer
 
 
 def evaluate(
@@ -167,8 +140,8 @@ def evaluate(
     model_id=None,
     blocks=None,
 ):
-    val_loader, val_size = prepare_data(training_args)
-    model = load_model(model_info["model_path"])
+    testloader = load_dataset(training_args)
+    model = load_model(model_info)
 
     if model_constitution:
         if blocks is None:
@@ -176,32 +149,21 @@ def evaluate(
         else:
             reconstruct_weight_helper(model, blocks, 0, model_constitution)
 
-    device = torch.device("cuda")
+    device = torch.device(f"cuda")
     model.to(device)
     model.eval()
 
-    user_ratings_comparison = defaultdict(list)
-    with torch.no_grad():
-        tik = time.time()
-        for valid_data in val_loader:
-            users = valid_data["users"].to(device)
-            movies = valid_data["movies"].to(device)
-            ratings = valid_data["ratings"].to(device)
-            output = model(users, movies)
-
-            for user, pred, true in zip(users, output, ratings):
-                user_ratings_comparison[user.item()].append(
-                    (pred[0].item(), true.item())
-                )
-        tok = time.time()
-
-    k = 50
-    threshold = 3
-    user_based_f1 = dict()
-    for user_id, user_ratings in user_ratings_comparison.items():
-        f1 = calculate_precision_recall(user_ratings, k, threshold)
-        user_based_f1[user_id] = f1
-    average_f1 = sum(f1 for f1 in user_based_f1.values()) / len(user_based_f1)
-
-    print(f"f1 @ {k}: {average_f1:.4f} | Time: {tok-tik:.3f}s")
-    return average_f1
+    correct, total = 0, 0
+    tic = time.time()
+    for batch_idx, (inputs, targets) in enumerate(testloader):
+        inputs, targets = inputs.to(device), targets.to(device)
+        with torch.no_grad():
+            outputs = model(inputs)
+            # Record loss
+            total += targets.size(0)
+            indices = torch.argmax(outputs, dim=1, keepdim=True)
+            correct += torch.gather(targets, 1, indices).sum()
+    toc = time.time()
+    top1_prec = 100.0 * correct / total
+    print(f"Top1 Precision: {top1_prec:.3f}% | Time: {toc-tic:.3f}s")
+    return top1_prec

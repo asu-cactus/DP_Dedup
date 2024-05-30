@@ -81,7 +81,7 @@ def run():
                 break
 
         n_new_blocks = original_num_blocks - round(max_v * original_num_blocks)
-        print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}")
+        print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}\n")
         total_new_blocks += n_new_blocks
     print(f"\n{total_new_blocks=}")
 

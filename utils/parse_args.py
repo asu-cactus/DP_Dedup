@@ -285,7 +285,7 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Whether to fine-tune the model during deduplication"},
     )
 
-    # For batch deduplication (used in every_n.py)
+    # For batch deduplication (used in every_n.py) and MCTS
     every_n: int = field(
         default=10,
         metadata={"help": "Run deduplication every n blocks"},
@@ -310,60 +310,61 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For MCTS
     n_episodes: int = field(
-        default=1000,
-        metadata={"help": "Number of episodes for MCTS"},
-    )
-    save_every: int = field(
-        default=1000,
-        metadata={"help": "Save MCTS results every n episodes"},
-    )
-
-    # For Heuristic MC-RAVE
-    mcts_mode: str = field(
-        default="dyn_prune_mcts",
-        metadata={
-            "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
-        },
-    )
-
-    # MCTS parameters
-    fanout: int = field(
         default=100,
-        metadata={"help": "Fanout of the first sub-action for MCTS"},
-    )
-    eval_every: int = field(
-        default=3,
-        metadata={"help": "Evaluate every n steps"},
-    )
-    top_k: int = field(
-        default=5,
-        metadata={"help": "Top-k actions to consider in heuristic test"},
-    )
-    top_k_actual: int = field(
-        default=1,
-        metadata={"help": "Top-k actions to consider in actual test"},
-    )
-    equivalence_param: int = field(
-        default=10000,
-        metadata={"help": "Equivalence parameter k for Hand-select schedule"},
+        metadata={"help": "Number of episodes for MCTS"},
     )
     cprod: float = field(
         default=0.1,
         metadata={"help": "C-prod for UCT"},
     )
-    # For MCTS resume search
-    resume: bool = field(
-        default=False,
-        metadata={"help": "Whether to resume Es dict for MCTS"},
-    )
-    resume_episode: int = field(
-        default=0,
-        metadata={"help": "Resume from episode n"},
-    )
-    keep_n: int = field(
-        default=5,
-        metadata={"help": "Keep n saved MCTS results"},
-    )
+    # save_every: int = field(
+    #     default=1000,
+    #     metadata={"help": "Save MCTS results every n episodes"},
+    # )
+
+    # # For Heuristic MC-RAVE
+    # mcts_mode: str = field(
+    #     default="dyn_prune_mcts",
+    #     metadata={
+    #         "help": "MCTS mode, choice: [mc_rave, heuristic_mc_rave, uct_mcts, dyn_prune_mcts, dyn_prune_uct_rave]"
+    #     },
+    # )
+
+    # # MCTS parameters
+    # fanout: int = field(
+    #     default=100,
+    #     metadata={"help": "Fanout of the first sub-action for MCTS"},
+    # )
+    # eval_every: int = field(
+    #     default=3,
+    #     metadata={"help": "Evaluate every n steps"},
+    # )
+    # top_k: int = field(
+    #     default=5,
+    #     metadata={"help": "Top-k actions to consider in heuristic test"},
+    # )
+    # top_k_actual: int = field(
+    #     default=1,
+    #     metadata={"help": "Top-k actions to consider in actual test"},
+    # )
+    # equivalence_param: int = field(
+    #     default=10000,
+    #     metadata={"help": "Equivalence parameter k for Hand-select schedule"},
+    # )
+
+    # # For MCTS resume search
+    # resume: bool = field(
+    #     default=False,
+    #     metadata={"help": "Whether to resume Es dict for MCTS"},
+    # )
+    # resume_episode: int = field(
+    #     default=0,
+    #     metadata={"help": "Resume from episode n"},
+    # )
+    # keep_n: int = field(
+    #     default=5,
+    #     metadata={"help": "Keep n saved MCTS results"},
+    # )
 
     # # For ensemble
     # array_id: int = field(

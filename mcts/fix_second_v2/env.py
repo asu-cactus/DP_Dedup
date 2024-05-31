@@ -83,11 +83,12 @@ class State:
             is_game_end, return_value = Es[sa]
         else:
             is_game_end = self._get_game_end(new_constitution)
-            if not is_game_end:
-                # Update avail_actions
-                del self.avail_actions[action]
             return_value = self._compute_return_value()
             Es[sa] = (is_game_end, return_value)
+
+        if not is_game_end:
+            # Update avail_actions
+            del self.avail_actions[action]
 
         if is_game_end or len(self.avail_actions) == 0:
             return None, return_value

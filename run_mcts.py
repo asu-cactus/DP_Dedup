@@ -122,6 +122,7 @@ def run():
         original_num_blocks = curr_model_storage["blocks"].shape[0]
 
         for i in range(1, training_args.n_episodes + 1):
+            print(f"Start episode {i}")
             init_state = mcts.initial_episode()
             v = mcts.search(state=init_state)
             n_dedup_blocks = round(v * original_num_blocks)

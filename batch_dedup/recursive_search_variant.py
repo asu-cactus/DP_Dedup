@@ -1,5 +1,6 @@
 import pdb
 
+from time import time
 import numpy as np
 
 from utils.parse_args import parse_args
@@ -16,6 +17,7 @@ def run():
     base_model_storage = block_model_1d(base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
 
+    total_sens_compute_time = 0
     total_new_blocks = 0
     blockss_from_base = set()
     for model_info in models_info[1:]:
@@ -24,7 +26,7 @@ def run():
         curr_model_storage = block_model_1d(model)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution = deduplicate_blocks(
+        model_constitution, sens_compute_time = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -40,9 +42,12 @@ def run():
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
+        total_sens_compute_time += sens_compute_time
+
     print(f"{total_new_blocks=}")
     print(f"All blocks from base: {blockss_from_base}")
     print(f"Number of blocks from base: {len(blockss_from_base)}")
+    print(f"Total sensitivity compute time: {total_sens_compute_time}   ")
 
 
 def get_used_allzero_indices(
@@ -84,6 +89,7 @@ def deduplicate_blocks(
     # The order the blocks are iterated through
     interate_seq = np.arange(model_range_start, model_range_end)
 
+    tic = time()
     return_n_embed_blocks = training_args.sensitivity_measure == "wanda"
     measures, n_embed_blocks = sensitivity_fn(
         model_info,
@@ -91,6 +97,8 @@ def deduplicate_blocks(
         skip_embeds=False,
         return_n_embed_blocks=return_n_embed_blocks,
     )
+    tok = time()
+    sens_compute_time = tok - tic
 
     all_zeros = np.all(measures == 0, axis=1)
     non_all_zeros = ~all_zeros
@@ -196,7 +204,7 @@ def deduplicate_blocks(
     print(f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}")
     print(f"Model constitution after dedup: {model_constitution}")
 
-    return model_constitution
+    return model_constitution, sens_compute_time
 
 
 def recursive_deduplicate(

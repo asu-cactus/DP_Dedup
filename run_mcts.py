@@ -82,18 +82,18 @@ def run():
     task_type = model_args.task_type
     output_dir = training_args.output_dir
 
-    if task_type == "text":
-        from text_task_utils.evaluate import evaluate as eval_fn
-    elif task_type.startswith("vision"):
-        from vision_task_utils.evaluate import evaluate as eval_fn
-        from vision_task_utils.train import train as train_fn
-    elif task_type == "recommendation":
-        from recommendation_task_utils.evaluate import evaluate as eval_fn
-        from recommendation_task_utils.train import train as train_fn
-    else:
-        raise ValueError(f"Unknown task type: {task_type}")
+    # if task_type == "text":
+    #     from text_task_utils.evaluate import evaluate as eval_fn
+    # elif task_type.startswith("vision"):
+    #     from vision_task_utils.evaluate import evaluate as eval_fn
+    #     from vision_task_utils.train import train as train_fn
+    # elif task_type == "recommendation":
+    #     from recommendation_task_utils.evaluate import evaluate as eval_fn
+    #     from recommendation_task_utils.train import train as train_fn
+    # else:
+    #     raise ValueError(f"Unknown task type: {task_type}")
 
-    base_model = load_model(models_info[0], model_args)[0]
+    base_model, eval_fn, train_fn, _ = load_model(models_info[0], model_args)
     base_model_storage = block_model_1d(base_model)
     # n_base_blocks = base_model_storage["blocks"].shape[0]
 

@@ -51,6 +51,7 @@ def load_model(model_info, model_args):
     if model_args.task_type == "text":
         from text_task_utils.models import RobertaForPromptFinetuning
         from text_task_utils.evaluate import evaluate as eval_fn
+        from text_task_utils.train import train as train_fn
         from utils.text_model_sensitivity import get_block_sensitivity as sensitivity_fn
 
         model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])

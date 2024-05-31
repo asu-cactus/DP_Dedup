@@ -165,6 +165,6 @@ def evaluate(
             indices = torch.argmax(outputs, dim=1, keepdim=True)
             correct += torch.gather(targets, 1, indices).sum()
     toc = time.time()
-    top1_prec = 100.0 * correct / total
-    print(f"Top1 Precision: {top1_prec:.3f}% | Time: {toc-tic:.3f}s")
+    top1_prec = correct / total
+    print(f"Top1 Precision: {top1_prec * 100:.3f}% | Time: {toc-tic:.3f}s")
     return top1_prec

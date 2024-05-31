@@ -118,8 +118,8 @@ def deduplicate_blocks(
         interate_seq = seq_to_order[ordered_indices]
 
     # Print the block magnitude
-    ordered_sensitivity = [round(m, 6) for m in block_sens[ordered_indices]]
-    measures = measures[ordered_indices]
+    # ordered_sensitivity = [round(m, 6) for m in block_sens[ordered_indices]]
+    # measures = measures[ordered_indices]
 
     # Initialize variables
     # Current iteration, evaluate every n iterations
@@ -134,8 +134,8 @@ def deduplicate_blocks(
     # Constitution to be evaluated
     temp_constitution = model_constitution.copy()
 
-    for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
-
+    # for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
+    for i in interate_seq:
         curr_iter += 1
         tobe_dedup_indices.add(i)
 
@@ -173,10 +173,10 @@ def deduplicate_blocks(
         if j in allzero_indices_set:
             used_allzero_indices_temp.add(j)
 
-        avg_distance = round(dist[j] / len(block_2b_replaced), 4)
-        total_diff = np.dot(measure, diff[j])
+        # avg_distance = round(dist[j] / len(block_2b_replaced), 4)
+        # total_diff = np.dot(measure, diff[j])
         print(f"{model_info['model_path']} block {i} -> {j}")
-        print(f"{avg_distance=}, {sens=}, {total_diff=}")
+        # print(f"{avg_distance=}, {sens=}, {total_diff=}")
 
         # Replace the current block with the most similar block
         temp_constitution = [j if c == i else c for c in temp_constitution]
@@ -209,6 +209,7 @@ def deduplicate_blocks(
             tobe_dedup_indices = set()
             used_allzero_indices_temp = set()
             temp_constitution = model_constitution.copy()
+            pdb.set_trace()
             print(f"acc: {acc:.4f}, dedup success: {acc >= acc_threshold}")
             print(f"Model constitution after dedup: {model_constitution}\n")
 

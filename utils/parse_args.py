@@ -431,22 +431,30 @@ def parse_args():
     if model_args.task_type == "text":
         data_args.task_name = "qnli"
         model_args.block_size = 589824
+        model_args.untouched_weights = 29470809
+        model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":
         model_args.model = "vit_large_patch16_224"
         data_args.dataset_name = "CIFAR100"
         training_args.bs = 500
         training_args.mini_bs = 50
         model_args.block_size = 1048576
+        model_args.untouched_weights = 1414244
+        model_args.n_original_weights = 303404132
     elif model_args.task_type == "vision_resnet":
         model_args.model = "resnet152.tv2_in1k"
         data_args.dataset_name = "CelebA"
         training_args.bs = 500
         training_args.mini_bs = 50
         model_args.block_size = 262144
+        model_args.untouched_weights = 2913384
+        model_args.n_original_weights = 58225768
     elif model_args.task_type == "recommendation":
         training_args.bs = 512
         training_args.mini_bs = 64
         model_args.block_size = 1180000
+        model_args.untouched_weights = 30005
+        model_args.n_original_weights = 236210005
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

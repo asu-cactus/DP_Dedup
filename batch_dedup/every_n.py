@@ -5,7 +5,12 @@ import numpy as np
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
 from utils import load_models_info
-from utils.common import load_model, merge_model_storage, separate_blocks
+from utils.common import (
+    load_model,
+    merge_model_storage,
+    separate_blocks,
+    compute_compression_ratio,
+)
 
 
 def run():
@@ -44,6 +49,14 @@ def run():
     print(f"\n{total_new_blocks=}")
     print(f"All blocks from base: {blockss_from_base}")
     print(f"Number of blocks from base: {len(blockss_from_base)}")
+
+    cr = compute_compression_ratio(
+        total_new_blocks,
+        model_args.block_size,
+        model_args.untouched_weights,
+        model_args.n_original_weights,
+    )
+    print(f"Compression ratio: {cr}")
 
 
 def deduplicate_blocks(

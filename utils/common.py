@@ -8,6 +8,20 @@ import torchvision
 import pdb
 
 
+def compute_compression_ratio(
+    remaining_blocks: int,
+    block_size: int,
+    untouched_weights: int,
+    n_original_weights: int,
+    n_models: int = 4,
+) -> float:
+    return (
+        remaining_blocks * block_size
+        + untouched_weights * n_models
+        + n_original_weights
+    ) / (n_original_weights * (n_models + 1))
+
+
 def merge_model_storage(base_model_storage, curr_model_storage):
     base_blocks = base_model_storage["blocks"]
     curr_blocks = curr_model_storage["blocks"]

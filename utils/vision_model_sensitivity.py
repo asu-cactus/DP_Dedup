@@ -22,27 +22,28 @@ def get_block_sensitivity(
     dataset = load_vision_dateset(data_args)
     model = load_model(model_info, model_args)[0]
 
+    block_size = model_args.block_size
     if measure == "magnitude":
-        blocks = magnitute_sensitivity(model)
+        blocks = magnitute_sensitivity(model, block_size)
     elif measure == "fisher":
         if data_args.dataset_name == "CelebA":
             raise ValueError("Fisher sensitivity is not implemented for CelebA.")
-        blocks = fisher_sensitity(model, dataset, data_args.dataset_name)
+        blocks = fisher_sensitity(model, dataset, data_args.dataset_name, block_size)
     elif measure == "gradient":
-        blocks = gradient_sensitity(model, dataset, data_args.dataset_name)
+        blocks = gradient_sensitity(model, dataset, data_args.dataset_name, block_size)
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
 
     return blocks, None
 
 
-def magnitute_sensitivity(model):
-    model_storage = block_model_1d(model)
+def magnitute_sensitivity(model, block_size):
+    model_storage = block_model_1d(block_size, model)
     blocks = model_storage["blocks"]
     return blocks
 
 
-def fisher_sensitity(model, dataset, batch_size=16):
+def fisher_sensitity(model, dataset, block_size, batch_size=16):
     model.eval()
     model.cuda()
 
@@ -82,7 +83,7 @@ def fisher_sensitity(model, dataset, batch_size=16):
     fim = {k: grad2 / sample_size for k, grad2 in fim.items()}
 
     # Block the Fisher information corresponding to each parameter
-    blocks = block_model_1d(fim)["blocks"]
+    blocks = block_model_1d(block_size, fim)["blocks"]
 
     return blocks
 
@@ -91,6 +92,7 @@ def gradient_sensitity(
     model,
     dataset,
     dataset_name,
+    block_size,
     batch_size=16,
     sample_size=None,
 ):
@@ -127,6 +129,6 @@ def gradient_sensitity(
             grads[name] = param.grad
 
     # Block the Gradients corresponding to each parameter
-    blocks = block_model_1d(grads)["blocks"]
+    blocks = block_model_1d(block_size, grads)["blocks"]
 
     return blocks

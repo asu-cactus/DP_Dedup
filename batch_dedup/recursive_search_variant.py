@@ -14,7 +14,7 @@ def run():
     models_info = load_models_info(model_args.task_type)
     base_model = load_model(models_info[0], model_args)[0]
     # Block model
-    base_model_storage = block_model_1d(base_model)
+    base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
 
     total_sens_compute_time = 0
@@ -23,7 +23,7 @@ def run():
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
-        curr_model_storage = block_model_1d(model)
+        curr_model_storage = block_model_1d(model_args.block_size, model)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
         model_constitution, sens_compute_time = deduplicate_blocks(

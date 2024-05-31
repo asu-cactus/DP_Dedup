@@ -502,14 +502,15 @@ def get_block_sensitivity(
         training_args,
     )
 
+    block_size = model_args.block_size
     if measure == "magnitude":
-        blocks = magnitute_sensitivity(model, skip_embeds=skip_embeds)
+        blocks = magnitute_sensitivity(model, block_size, skip_embeds=skip_embeds)
     elif measure == "fisher":
-        blocks = fisher_sensitity(model, dataset, skip_embeds=skip_embeds)
+        blocks = fisher_sensitity(model, dataset, block_size, skip_embeds=skip_embeds)
     elif measure == "wanda":
-        blocks = wanda_sensitivity(model, dataset)
+        blocks = wanda_sensitivity(model, dataset, block_size)
     elif measure == "gradient":
-        blocks = gradient_sensitity(model, dataset)
+        blocks = gradient_sensitity(model, dataset, block_size)
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
 
@@ -525,13 +526,15 @@ def get_block_sensitivity(
     return blocks, None
 
 
-def magnitute_sensitivity(model, skip_embeds=True):
-    model_storage = block_model_1d(model, skip_embeds)
+def magnitute_sensitivity(model, block_size, skip_embeds=True):
+    model_storage = block_model_1d(block_size, model, skip_embeds)
     blocks = model_storage["blocks"]
     return blocks
 
 
-def fisher_sensitity(model, dataset, batch_size=16, skip_embeds=True, sample_size=None):
+def fisher_sensitity(
+    model, dataset, block_size, batch_size=16, skip_embeds=True, sample_size=None
+):
     model.eval()
     model.cuda()
 
@@ -591,13 +594,13 @@ def fisher_sensitity(model, dataset, batch_size=16, skip_embeds=True, sample_siz
     fim = {k: grad2 / sample_size for k, grad2 in fim.items()}
 
     # Block the Fisher information corresponding to each parameter
-    blocks = block_model_1d(fim, skip_embeds)["blocks"]
+    blocks = block_model_1d(block_size, fim, skip_embeds)["blocks"]
 
     return blocks
 
 
 @torch.no_grad()
-def wanda_sensitivity(model, dataset):
+def wanda_sensitivity(model, dataset, block_size):
     layer_names = []
     for name, param in model.named_parameters():
         layer_names.append(name)
@@ -648,7 +651,7 @@ def wanda_sensitivity(model, dataset):
         )
         wanda_importance[name] = W_metric.cpu()
 
-    blocks = block_model_1d(wanda_importance)["blocks"]
+    blocks = block_model_1d(block_size, wanda_importance)["blocks"]
     torch.cuda.empty_cache()
     return blocks
 
@@ -656,6 +659,7 @@ def wanda_sensitivity(model, dataset):
 def gradient_sensitity(
     model,
     dataset,
+    block_size,
     batch_size=16,
     skip_embeds=False,
     sample_size=None,
@@ -714,7 +718,7 @@ def gradient_sensitity(
             grads[name] = param.grad
 
     # Block the Fisher information corresponding to each parameter
-    blocks = block_model_1d(grads, skip_embeds)["blocks"]
+    blocks = block_model_1d(block_size, grads, skip_embeds)["blocks"]
 
     return blocks
 

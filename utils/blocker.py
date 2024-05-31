@@ -13,7 +13,7 @@ from text_task_utils.models import RobertaForPromptFinetuning
 # BLOCKSIZE = 589824  # 768 * 768 for base models and 1024 * 576 for large models
 
 # Block size for vision models
-BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
+# BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
 # BLOCKSIZE = 262144  # 512 * 512 for ResNet152 models
 
 # # Block size for recommendation models
@@ -21,7 +21,7 @@ BLOCKSIZE = 1048576  # 1024 * 1024 for VIT large models
 # BLOCKSIZE = 1180000  # 236 * 5000 for rcv1 models
 
 
-def block_model_1d(model_or_paramdict, skip_embeds=False):
+def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
     """
     Partition the model weights into blocks with given block size.
     """
@@ -45,7 +45,7 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
         params = params.detach().cpu()
 
         # No deduplicating 1-d vectors (mostly bias)
-        if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
+        if params.squeeze().dim() == 1 or params.numel() < block_size:
             untouch_weights[name] = params.numpy()
             continue
 
@@ -57,12 +57,12 @@ def block_model_1d(model_or_paramdict, skip_embeds=False):
 
         # Block 2-d matrix
         params_flatten = params.flatten()
-        remainder = params_flatten.shape[0] % BLOCKSIZE
+        remainder = params_flatten.shape[0] % block_size
         if remainder != 0:
             params_flatten = F.pad(
-                params_flatten, (0, BLOCKSIZE - remainder), value=0.0
+                params_flatten, (0, block_size - remainder), value=0.0
             )
-        block = params_flatten.reshape(-1, BLOCKSIZE)
+        block = params_flatten.reshape(-1, block_size)
         blocks.append(block.numpy())
 
     #     layer_ids.extend([i + 1] * block.shape[0])
@@ -149,14 +149,14 @@ def get_blocks(
     blocks = np.concatenate(blocks, axis=0)
 
     return {
-        "blocks": blocks,  #  numpy array, shape: (n_all_blocks, BLOCKSIZE)
+        "blocks": blocks,  #  numpy array, shape: (n_all_blocks, block_size)
         "model_range": np.array(model_range),  #  numpy array of type int
         "untouch_weights": untouch_weights,  # dict: {f"{ith_model}_{jth_weight}": bias}
     }
     # # Save blocks, biases, scale_factors to blocks_path
     # np.savez(
     #     blocks_path,
-    #     blocks=blocks,  #  numpy array, shape: (n_all_blocks, BLOCKSIZE)
+    #     blocks=blocks,  #  numpy array, shape: (n_all_blocks, block_size)
     #     model_range=np.array(model_range),  #  numpy array of type int
     #     biases=biases,  # dict: {f"{ith_model}_{jth_weight}": bias}
     #     # search_range=search_range,  # numpy array of shape (n_all_blocks, 2)
@@ -192,16 +192,17 @@ def reconstruct_weight_helper(
 ):
     start_idx = 0
     non_bias_idx = 0
+    block_size = blocks.shape[1]
 
     for name, params in model.named_parameters():
         params.requires_grad_(False)
-        if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
+        if params.squeeze().dim() == 1 or params.numel() < block_size:
             if untouched_weights is not None:
                 params.copy_(torch.from_numpy(untouched_weights[name]))
             continue
         # Reconstruct weights
         numel = params.numel()
-        nblocks_for_params = math.ceil(numel / BLOCKSIZE)
+        nblocks_for_params = math.ceil(numel / block_size)
         end_idx = start_idx + nblocks_for_params
         constitution_range = model_constitution[start_idx:end_idx]
         # Avoid reconstructing new weights if the model constitution is the same as the original one

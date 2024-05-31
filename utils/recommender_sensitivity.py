@@ -17,25 +17,26 @@ def get_block_sensitivity(model_info, measure, skip_embeds, return_n_embed_block
     val_loader, val_size = load_dataset(training_args)
     model = load_model(model_info, model_args)[0]
 
+    block_size = model_args.block_size
     if measure == "magnitude":
-        blocks = magnitute_sensitivity(model)
+        blocks = magnitute_sensitivity(model, block_size)
     elif measure == "fisher":
-        blocks = fisher_sensitity(model, val_loader, val_size)
+        blocks = fisher_sensitity(model, val_loader, val_size, block_size)
     elif measure == "gradient":
-        blocks = gradient_sensitity(model, val_loader, val_size)
+        blocks = gradient_sensitity(model, val_loader, val_size, block_size)
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
 
     return blocks, None
 
 
-def magnitute_sensitivity(model):
-    model_storage = block_model_1d(model)
+def magnitute_sensitivity(model, block_size):
+    model_storage = block_model_1d(block_size, model)
     blocks = model_storage["blocks"]
     return blocks
 
 
-def fisher_sensitity(model, val_loader, val_size):
+def fisher_sensitity(model, val_loader, val_size, block_size):
     model.eval()
     model.cuda()
 
@@ -72,12 +73,12 @@ def fisher_sensitity(model, val_loader, val_size):
     fim = {k: grad2 / sample_size for k, grad2 in fim.items()}
 
     # Block the Fisher information corresponding to each parameter
-    blocks = block_model_1d(fim)["blocks"]
+    blocks = block_model_1d(block_size, fim)["blocks"]
 
     return blocks
 
 
-def gradient_sensitity(model, val_loader, val_size):
+def gradient_sensitity(model, val_loader, val_size, block_size):
     model.eval()
     model.cuda()
 
@@ -99,6 +100,6 @@ def gradient_sensitity(model, val_loader, val_size):
             grads[name] = param.grad
 
     # Block the Gradients corresponding to each parameter
-    blocks = block_model_1d(grads)["blocks"]
+    blocks = block_model_1d(block_size, grads)["blocks"]
 
     return blocks

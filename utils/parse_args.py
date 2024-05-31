@@ -305,7 +305,9 @@ class DynamicTrainingArguments(TrainingArguments):
     )
     sensitivity_measure: str = field(
         default="gradient",
-        metadata={"help": "Sensitivity measure, choice: [magnitude, fisher, wanda]"},
+        metadata={
+            "help": "Sensitivity measure, choice: [magnitude, fisher, wanda, gradient]"
+        },
     )
 
     # For MCTS
@@ -426,19 +428,25 @@ def parse_args():
         )
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    if model_args.task_type == "vision_vit":
+    if model_args.task_type == "text":
+        data_args.task_name = "qnli"
+        model_args.block_size = 589824
+    elif model_args.task_type == "vision_vit":
         model_args.model = "vit_large_patch16_224"
         data_args.dataset_name = "CIFAR100"
         training_args.bs = 500
         training_args.mini_bs = 50
+        model_args.block_size = 1048576
     elif model_args.task_type == "vision_resnet":
         model_args.model = "resnet152.tv2_in1k"
         data_args.dataset_name = "CelebA"
         training_args.bs = 500
         training_args.mini_bs = 50
+        model_args.block_size = 262144
     elif model_args.task_type == "recommendation":
         training_args.bs = 512
         training_args.mini_bs = 64
+        model_args.block_size = 1180000
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

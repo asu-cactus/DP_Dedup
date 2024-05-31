@@ -94,7 +94,7 @@ def run():
     #     raise ValueError(f"Unknown task type: {task_type}")
 
     base_model, eval_fn, train_fn, _ = load_model(models_info[0], model_args)
-    base_model_storage = block_model_1d(base_model)
+    base_model_storage = block_model_1d(model_args.block_size, base_model)
     # n_base_blocks = base_model_storage["blocks"].shape[0]
 
     total_new_blocks = 0
@@ -102,7 +102,7 @@ def run():
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model = load_model(model_info, model_args)[0]
-        curr_model_storage = block_model_1d(model)
+        curr_model_storage = block_model_1d(model_args.block_size, model)
         models_storage = merge_model_storage(base_model_storage, curr_model_storage)
         action_space = create_action_space(
             model_args, training_args, model_info, models_storage

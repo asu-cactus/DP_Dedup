@@ -209,7 +209,6 @@ def deduplicate_blocks(
             tobe_dedup_indices = set()
             used_allzero_indices_temp = set()
             temp_constitution = model_constitution.copy()
-            pdb.set_trace()
             print(f"acc: {acc:.4f}, dedup success: {acc >= acc_threshold}")
             print(f"Model constitution after dedup: {model_constitution}\n")
 

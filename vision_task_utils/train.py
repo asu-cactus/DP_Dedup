@@ -3,7 +3,7 @@
 import pdb
 from time import time
 
-from utils.blocker import reconstruct_weight, reconstruct_weight_helper
+from utils.blocker import reconstruct_weight
 from utils.common import load_vision_dateset, load_model
 from utils.blocker import BLOCKSIZE
 

@@ -520,7 +520,7 @@ def get_block_sensitivity(
         for name, params in model.named_parameters():
             if "embeddings" in name:
                 embed_params[name] = params
-        embed_blocks = block_model_1d(embed_params)["blocks"]
+        embed_blocks = block_model_1d(block_size, embed_params)["blocks"]
         n_embed_blocks = embed_blocks.shape[0]
         return blocks, n_embed_blocks
     return blocks, None
@@ -608,8 +608,9 @@ def wanda_sensitivity(model, dataset, block_size):
     model.eval()
     model.cuda()
 
-    batch_size = len(dataset)
-    # dataset_len = len(dataset)
+    # Instead of using the whole dataset, we use a subset of it
+    batch_size = 128
+    # batch_size = len(dataset)
     input_ids = torch.tensor(
         [[dataset[i].input_ids for i in range(batch_size)]], dtype=torch.long
     )

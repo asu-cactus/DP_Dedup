@@ -9,8 +9,13 @@ import numpy as np
 
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
-from utils import load_models_info
-from utils.common import load_model, merge_model_storage, compute_compression_ratio
+from utils.common import (
+    load_models_info,
+    load_model,
+    merge_model_storage,
+    compute_compression_ratio,
+    set_model_args,
+)
 from mcts.fix_second_v2.mcts import MCTS
 
 
@@ -96,6 +101,7 @@ def run():
     base_model, eval_fn, train_fn, _ = load_model(models_info[0], model_args)
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     # n_base_blocks = base_model_storage["blocks"].shape[0]
+    set_model_args(model_args, model, base_model_storage)
 
     total_new_blocks = 0
     # blockss_from_base = set()

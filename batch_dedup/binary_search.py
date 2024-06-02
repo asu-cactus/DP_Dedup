@@ -4,12 +4,13 @@ import numpy as np
 
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
-from utils import load_models_info
 from utils.common import (
+    load_models_info,
     load_model,
     merge_model_storage,
     separate_blocks,
     compute_compression_ratio,
+    set_model_args,
 )
 
 
@@ -21,6 +22,7 @@ def run():
     # Block model
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
+    set_model_args(model_args, model, base_model_storage)
 
     # Deduplicate blocks for each model
     total_new_blocks = 0

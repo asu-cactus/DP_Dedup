@@ -5,12 +5,13 @@ import numpy as np
 
 from utils.parse_args import parse_args
 from utils.blocker import block_model_1d
-from utils import load_models_info
 from utils.common import (
+    load_models_info,
     load_model,
     merge_model_storage,
     separate_blocks,
     compute_compression_ratio,
+    set_model_args,
 )
 
 
@@ -18,9 +19,11 @@ def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args.task_type)
     base_model = load_model(models_info[0], model_args)[0]
+
     # Block model
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
+    set_model_args(model_args, model, base_model_storage)
 
     total_sens_compute_time = 0
     total_new_blocks = 0
@@ -305,7 +308,7 @@ def recursive_deduplicate(
                 1,
             )
 
-    print(f"acc: {acc:.4f}, dedup success:: {success}")
+    print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")
 
     if success:

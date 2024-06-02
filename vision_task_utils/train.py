@@ -4,12 +4,11 @@ import pdb
 from time import time
 
 from utils.blocker import reconstruct_weight
-from utils.common import load_vision_dateset, load_model
-from utils.blocker import BLOCKSIZE
+from utils.common import load_model
+from vision_task_utils.dataset import load_vision_dateset
 
 import torch
 from tqdm import tqdm
-import numpy as np
 from opacus.accountants.utils import get_noise_multiplier
 from fastDP import PrivacyEngine
 
@@ -38,7 +37,7 @@ def train(
 
     # Train only untouched weights
     for name, params in model.named_parameters():
-        if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
+        if params.squeeze().dim() == 1 or params.numel() < model_args.block_size:
             params.requires_grad_(True)
         else:
             params.requires_grad_(False)
@@ -113,5 +112,5 @@ def train(
     # Update the model storage
     untouch_weights = model_storage["untouch_weights"][model_id]
     for name, params in model.named_parameters():
-        if params.squeeze().dim() == 1 or params.numel() < BLOCKSIZE:
+        if params.squeeze().dim() == 1 or params.numel() < model_args.block_size:
             untouch_weights[name] = params.detach().cpu().numpy()

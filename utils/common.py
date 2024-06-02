@@ -2,10 +2,47 @@ import timm
 import torch
 from opacus.validators import ModuleValidator
 import numpy as np
-import torchvision
 
-
+import json
 import pdb
+
+
+def load_models_info(task_type) -> list[dict]:
+    """
+    Load model information from model_info.json.
+    If model_ids is not specified, load all models. Otherwise, load the specified models.
+    """
+    if task_type == "text":
+        model_info_path = "models/model_info_text.json"
+    elif task_type == "vision_vit":
+        model_info_path = "models/model_info_vision_vit.json"
+    elif task_type == "vision_resnet":
+        model_info_path = "models/model_info_vision_resnet.json"
+    elif task_type == "recommendation":
+        model_info_path = "models/model_info_recommendation.json"
+    else:
+        raise ValueError(f"Invalid task type: {task_type}")
+
+    with open(model_info_path, "r") as f:
+        models_info = json.load(f)
+    models_info = list(models_info.values())
+    for info in models_info:
+        print(info)
+    return models_info
+
+
+def set_model_args(model_args, model, model_storage):
+    untouched_weight_count = 0
+    for weight in model_storage["untouch_weights"].values():
+        untouched_weight_count += weight.size
+    model_args.untouched_weights = untouched_weight_count
+    print(f"Number of untouched weights: {untouched_weight_count}")
+
+    params_count = 0
+    for params in model.parameters():
+        params_count += params.numel()
+    model_args.n_original_weights = params_count
+    print(f"Number of original weights: {params_count}")
 
 
 def compute_compression_ratio(
@@ -100,94 +137,3 @@ def load_model(model_info, model_args):
         raise ValueError(f"Invalid task name: {model_args.task_type}")
 
     return model, eval_fn, train_fn, sensitivity_fn
-
-
-def load_vision_dateset(data_args):
-    transformation = torchvision.transforms.Compose(
-        [
-            torchvision.transforms.Resize(
-                (224, 224)
-            ),  # https://discuss.pytorch.org/t/runtimeerror-stack-expects-each-tensor-to-be-equal-size-but-got-3-224-224-at-entry-0-and-3-224-336-at-entry-3/87211/10
-            torchvision.transforms.ToTensor(),
-            torchvision.transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-    # if data_args.dataset_name in ["SVHN", "CIFAR10"]:
-    #     num_classes = 10
-    # elif data_args.dataset_name in ["CIFAR100", "FGVCAircraft"]:
-    #     num_classes = 100
-    # elif data_args.dataset_name in ["Food101"]:
-    #     num_classes = 101
-    # elif data_args.dataset_name in ["GTSRB"]:
-    #     num_classes = 43
-    # elif data_args.dataset_name in ["CelebA"]:
-    #     num_classes = 40
-    # elif data_args.dataset_name in ["Places365"]:
-    #     num_classes = 365
-    # elif data_args.dataset_name in ["ImageNet"]:
-    #     num_classes = 1000
-    # elif data_args.dataset_name in ["INaturalist"]:
-    #     num_classes = 10000
-
-    if data_args.dataset_name in ["SVHN", "Food101", "GTSRB", "FGVCAircraft"]:
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/", split="train", download=True, transform=transformation
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/", split="test", download=True, transform=transformation
-        )
-    elif data_args.dataset_name in ["CIFAR10", "CIFAR100"]:
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/", train=True, download=True, transform=transformation
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/", train=False, download=True, transform=transformation
-        )
-    elif data_args.dataset_name == "CelebA":
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/",
-        #     split="train",
-        #     download=False,
-        #     target_type="attr",
-        #     transform=transformation,
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/",
-            split="test",
-            download=False,
-            target_type="attr",
-            transform=transformation,
-        )
-    elif data_args.dataset_name == "Places365":
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/",
-        #     split="train-standard",
-        #     small=True,
-        #     download=False,
-        #     transform=transformation,
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/",
-            split="val",
-            small=True,
-            download=False,
-            transform=transformation,
-        )
-    elif data_args.dataset_name == "INaturalist":
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/",
-        #     version="2021_train_mini",
-        #     download=False,
-        #     transform=transformation,
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/", version="2021_valid", download=False, transform=transformation
-        )
-    elif data_args.dataset_name == "ImageNet":
-        # trainset = getattr(torchvision.datasets, data_args.dataset_name)(
-        #     root="data/", split="train", transform=transformation
-        # )
-        testset = getattr(torchvision.datasets, data_args.dataset_name)(
-            root="data/", split="val", transform=transformation
-        )
-    return testset

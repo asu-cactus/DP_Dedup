@@ -9,7 +9,8 @@ from utils.blocker import reconstruct_weight, reconstruct_weight_helper
 import torch
 from tqdm import tqdm
 import numpy as np
-from utils.common import load_vision_dateset, load_model
+from utils.common import load_model
+from vision_task_utils.dataset import load_vision_dateset
 
 
 def evaluate(

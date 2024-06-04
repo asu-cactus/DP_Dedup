@@ -15,7 +15,7 @@ from utils.common import (
 )
 
 
-def run():
+def run(save_models=False):
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args.task_type)
     base_model = load_model(models_info[0], model_args)[0]
@@ -23,7 +23,7 @@ def run():
     # Block model
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
-    set_model_args(model_args, model, base_model_storage)
+    set_model_args(model_args, base_model, base_model_storage)
 
     total_sens_compute_time = 0
     total_new_blocks = 0
@@ -51,6 +51,14 @@ def run():
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
         total_sens_compute_time += sens_compute_time
+
+        if save_models:
+            from utils.blocker import reconstruct_weight
+
+            if model_args.task_type == "text":
+                from text_task_utils.save_model import save_model
+            reconstruct_weight(model_storage, model, 1, model_constitution)
+            save_model(model, model_info["model_path"] + "-deduped")
 
     print(f"{total_new_blocks=}")
     print(f"All blocks from base: {blockss_from_base}")

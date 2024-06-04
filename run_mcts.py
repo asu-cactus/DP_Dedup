@@ -101,7 +101,7 @@ def run():
     base_model, eval_fn, train_fn, _ = load_model(models_info[0], model_args)
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     # n_base_blocks = base_model_storage["blocks"].shape[0]
-    set_model_args(model_args, model, base_model_storage)
+    set_model_args(model_args, base_model, base_model_storage)
 
     total_new_blocks = 0
     # blockss_from_base = set()

@@ -62,7 +62,7 @@ def evaluate(
             test_loss += loss.item()
             total += targets.size(0)
             if data_args.dataset_name == "CelebA":
-                correct += ((outputs > 0) == targets).sum(dim=0).float().mean()
+                correct += ((outputs > 0) == targets).sum(dim=0).float().mean().item()
             else:
                 _, predicted = outputs.max(1)
                 correct += predicted.eq(targets).sum().item()

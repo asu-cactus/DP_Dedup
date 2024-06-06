@@ -5,7 +5,7 @@ from time import time
 
 from utils.blocker import reconstruct_weight
 from utils.common import load_model
-from vision_task_utils.dataset import load_vision_dateset
+from vision_task_utils.dataset import load_vision_dataset
 
 import torch
 from tqdm import tqdm
@@ -25,7 +25,7 @@ def train(
     device = torch.device("cuda")
 
     # Load the dataset
-    trainset = load_vision_dateset(data_args)
+    trainset = load_vision_dataset(data_args)
     trainloader = torch.utils.data.DataLoader(
         trainset, batch_size=training_args.mini_bs, shuffle=True, num_workers=4
     )

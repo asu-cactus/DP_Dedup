@@ -1,9 +1,8 @@
 import pdb
-
 import numpy as np
 
 from utils.parse_args import parse_args
-from utils.blocker import block_model_1d
+from utils.blocker import block_model_1d, reconstruct_weight
 from utils.common import (
     load_models_info,
     load_model,
@@ -11,29 +10,68 @@ from utils.common import (
     separate_blocks,
     compute_compression_ratio,
     set_model_args,
+    save_model_storage,
 )
+from utils.quantization import save_model, quant_and_dequant_model
 
 
 def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args.task_type)
+    models_info = load_models_info(model_args)
 
     base_model = load_model(models_info[0], model_args)[0]
     # Block model
-    base_model_storage = block_model_1d(model_args.block_size, base_model)
+    if model_args.quantize:
+        deq_model, quant_data, _ = quant_and_dequant_model(base_model)
+        base_model_storage = block_model_1d(model_args.block_size, deq_model)
+    else:
+        base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
     set_model_args(model_args, base_model, base_model_storage)
 
     # Deduplicate blocks for each model
     total_new_blocks = 0
     blockss_from_base = set()
+    max_acc_drop = 0.0
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
+        if model_args.quantize:
+            save_path = model_info["model_path"].replace(".pt", "_wo_quant.npz")
+            save_model(curr_model_storage, save_path)
+            deq_model, _, q_model = quant_and_dequant_model(model, quant_data)
+
+            # # Measure the accuracy of the model after quantization before deduplication
+            # deq_model_storage = block_model_1d(model_args.block_size, deq_model)
+            # nblocks = deq_model_storage["blocks"].shape[0]
+            # deq_model_storage["model_range"] = [0, nblocks - 1]
+            # deq_model_storage["untouch_weights"] = [
+            #     deq_model_storage["untouch_weights"]
+            # ]
+            # eval_fn(
+            #     data_args,
+            #     model_args,
+            #     training_args,
+            #     model_info,
+            #     list(range(nblocks - 1)),
+            #     deq_model_storage,
+            #     0,
+            # )
+
+            # Make sure blocks are integers.
+            q_model_storage = block_model_1d(model_args.block_size, q_model)
+            q_model_storage["blocks"] = q_model_storage["blocks"].astype(np.int8)
+            save_path = model_info["model_path"].replace(".pt", "_w_quant.npz")
+
+            save_model(q_model_storage, save_path)
+            curr_model_storage = block_model_1d(model_args.block_size, deq_model)
+        # if model_args.prune:
+        #     save_path = model_info["model_path"].replace(".pth", "_wo_dedup.npz")
+        #     save_model_storage(curr_model_storage, save_path)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution = deduplicate_blocks(
+        model_constitution, acc_drop = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -44,21 +82,30 @@ def run():
             train_fn,
             sensitivity_fn,
         )
+        max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
-    print(f"{total_new_blocks=}")
-    print(f"All blocks from base: {blockss_from_base}")
-    print(f"Number of blocks from base: {len(blockss_from_base)}")
+        if model_args.prune:
+            unique_blocks = np.unique(model_constitution)
+            curr_model_storage["blocks"] = model_storage["blocks"][unique_blocks]
+            reconstruct_weight(model_storage, model, 1, model_constitution)
+            save_path = model_info["model_path"].replace(".pth", "_w_dedup.npz")
+            save_model_storage(curr_model_storage, save_path)
+
+    n_models = len(models_info) - 1
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
         model_args.untouched_weights,
         model_args.n_original_weights,
+        n_models,
     )
-    print(f"Compression ratio: {cr}")
+    print(f"{total_new_blocks=} | {cr=} | {max_acc_drop=}")
+    print(f"All blocks from base: {blockss_from_base}")
+    print(f"Number of blocks from base: {len(blockss_from_base)}")
 
 
 def get_used_allzero_indices(
@@ -166,8 +213,6 @@ def deduplicate_blocks(
     )
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
-    if len(allzerograd_seq) == 0:
-        return model_constitution
 
     # Start deduplication
     temp_constitution = model_constitution.copy()
@@ -207,10 +252,15 @@ def deduplicate_blocks(
     if acc >= acc_threshold:
         model_constitution = temp_constitution
 
-    print(f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}")
-    print(f"Model constitution after dedup: {model_constitution}")
+    acc_drop = model_info["original_acc"] - acc
 
-    return model_constitution
+    if len(allzerograd_seq) > 0:
+        print(
+            f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}"
+        )
+        print(f"Model constitution after dedup: {model_constitution}")
+
+    return model_constitution, acc_drop
 
 
 def recursive_deduplicate(

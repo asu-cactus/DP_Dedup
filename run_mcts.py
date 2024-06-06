@@ -83,7 +83,7 @@ def create_action_space(model_args, training_args, model_info, models_storage):
 
 def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args.task_type)
+    models_info = load_models_info(model_args)
     task_type = model_args.task_type
     output_dir = training_args.output_dir
 
@@ -144,14 +144,16 @@ def run():
         n_new_blocks = original_num_blocks - round(max_v * original_num_blocks)
         print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}\n")
         total_new_blocks += n_new_blocks
-    print(f"\n{total_new_blocks=}")
+
+    n_models = len(models_info)
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
         model_args.untouched_weights,
         model_args.n_original_weights,
+        n_models,
     )
-    print(f"Compression ratio: {cr}")
+    print(f"\n{total_new_blocks=} | {cr=}")
 
 
 if __name__ == "__main__":

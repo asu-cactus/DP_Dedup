@@ -9,7 +9,8 @@ import timm
 
 from utils.blocker import block_model_1d
 from utils.parse_args import parse_args
-from utils.common import load_model, load_vision_dateset
+from utils.common import load_model
+from vision_task_utils.dataset import load_vision_dataset
 
 
 def get_block_sensitivity(
@@ -19,7 +20,7 @@ def get_block_sensitivity(
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
-    dataset = load_vision_dateset(data_args)
+    dataset = load_vision_dataset(data_args)
     model = load_model(model_info, model_args)[0]
 
     block_size = model_args.block_size

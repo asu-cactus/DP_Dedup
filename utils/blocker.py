@@ -28,7 +28,6 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
 
     # # DP-trained models have large variance that depend on the amount of noise added.
     # # We normalize weights to have unit variance and will demonormalize during reconstruction.
-    # scale_factors = []
     # Start blocking
     untouch_weights = {}
     blocks = []
@@ -48,12 +47,6 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
         if params.squeeze().dim() == 1 or params.numel() < block_size:
             untouch_weights[name] = params.numpy()
             continue
-
-        # # Normalize weights
-        # std = params.var().sqrt().item()
-        # params = params / std
-        # # print(f"Layer {i} std: {std}")
-        # scale_factors.append(std)
 
         # Block 2-d matrix
         params_flatten = params.flatten()
@@ -95,7 +88,6 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
     #     start_index += layer_nblocks
 
     model_storage = {
-        # "scale_factors": np.array(scale_factors, dtype=np.float32),
         "blocks": np.concatenate(blocks, axis=0),
         "untouch_weights": untouch_weights,  # list of numpy array
         # "search_range": search_range,  # numpy array of shape (n_all_blocks, 2)
@@ -123,7 +115,6 @@ def get_blocks(
 
     blocks = []
     untouch_weights = {}
-    # scale_factors = []
     model_range = [0]
 
     # Load blocks from blocks_path
@@ -134,9 +125,6 @@ def get_blocks(
         # Merge blocks
         blocks.append(model_storage["blocks"])
         model_range.append(model_range[-1] + model_storage["blocks"].shape[0])
-
-        # # Merge scale_factors
-        # scale_factors.append(model_storage["scale_factors"])
 
         # Merge bias for all models
         for jth_weight, weight in model_storage["untouch_weights"].items():
@@ -213,10 +201,6 @@ def reconstruct_weight_helper(
             (block_id == start + i for i, block_id in enumerate(constitution_range))
         ):
             new_weight = blocks[constitution_range].flatten()[:numel]
-            # # Scale weights
-            # new_weight = (
-            #     new_weight * model_storage["scale_factors"][model_id][non_bias_idx]
-            # )
             # Set parameter to new weight
             params.copy_(torch.from_numpy(new_weight.reshape(params.shape)))
 

@@ -10,7 +10,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 from utils.common import load_model
-from vision_task_utils.dataset import load_vision_dateset
+from vision_task_utils.dataset import load_vision_dataset
 
 
 def evaluate(
@@ -25,7 +25,7 @@ def evaluate(
 ):
     device = torch.device("cuda")
 
-    testset = load_vision_dateset(data_args)
+    testset = load_vision_dataset(data_args)
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=16, shuffle=False, num_workers=4
     )

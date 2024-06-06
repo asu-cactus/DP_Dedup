@@ -19,6 +19,14 @@ class ModelArguments:
     task_type: str = field(
         metadata={"help": "Task type. Choice: text, vision_vit, vision_resnet"},
     )
+    prune: bool = field(
+        default=False,
+        metadata={"help": "Whether to prune the model"},
+    )
+    quantize: bool = field(
+        default=False,
+        metadata={"help": "Whether to quantize the model"},
+    )
 
     # For text task
     model_name_or_path: Optional[str] = field(

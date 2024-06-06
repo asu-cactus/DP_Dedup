@@ -1,0 +1,18 @@
+{
+    "0": {
+        "model_path": "../models/in1k_CelebA_eps0.4.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0,
+        "original_acc": 0,
+        "budget": 0.4,
+        "allowed_budget": 0.4
+    },
+    "1": {
+        "model_path": "../models/in1k_CelebA_eps0.6.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.013,
+        "original_acc": 0.8041,
+        "budget": 0.6,
+        "allowed_budget": 1.0
+    }
+}

@@ -1,7 +1,7 @@
 import torchvision
 
 
-def load_vision_dateset(data_args):
+def load_vision_dataset(data_args):
     transformation = torchvision.transforms.Compose(
         [
             torchvision.transforms.Resize(

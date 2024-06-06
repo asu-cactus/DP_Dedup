@@ -7,21 +7,26 @@ import json
 import pdb
 
 
-def load_models_info(task_type) -> list[dict]:
+def load_models_info(model_args) -> list[dict]:
     """
     Load model information from model_info.json.
     If model_ids is not specified, load all models. Otherwise, load the specified models.
     """
-    if task_type == "text":
-        model_info_path = "models/model_info_text.json"
-    elif task_type == "vision_vit":
-        model_info_path = "models/model_info_vision_vit.json"
-    elif task_type == "vision_resnet":
-        model_info_path = "models/model_info_vision_resnet.json"
-    elif task_type == "recommendation":
-        model_info_path = "models/model_info_recommendation.json"
+    if model_args.task_type == "text":
+        model_info_path = "models/text.json"
+    elif model_args.task_type == "vision_vit":
+        model_info_path = "models/vision_vit.json"
+    elif model_args.task_type == "vision_resnet":
+        if model_args.prune:
+            model_info_path = "models/vision_resnet_pruned.json"
+        elif model_args.quantize:
+            model_info_path = "models/vision_resnet_quantized.json"
+        else:
+            model_info_path = "models/vision_resnet.json"
+    elif model_args.task_type == "recommendation":
+        model_info_path = "models/recommendation.json"
     else:
-        raise ValueError(f"Invalid task type: {task_type}")
+        raise ValueError(f"Invalid task type: {model_args.task_type}")
 
     with open(model_info_path, "r") as f:
         models_info = json.load(f)
@@ -52,6 +57,9 @@ def compute_compression_ratio(
     n_original_weights: int,
     n_models: int = 4,
 ) -> float:
+    if n_models == 1:
+        return (remaining_blocks * block_size + untouched_weights) / n_original_weights
+
     return (
         remaining_blocks * block_size
         + untouched_weights * n_models
@@ -118,11 +126,15 @@ def load_model(model_info, model_args):
             get_block_sensitivity as sensitivity_fn,
         )
 
-        model = timm.create_model(
-            model_args.model, pretrained=True, num_classes=num_classes
-        )
-        model = ModuleValidator.fix(model)
-        model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
+        if not model_args.prune:
+            # model = timm.create_model(model_args.model, num_classes=num_classes, pretrained=True)
+            model = timm.create_model(model_args.model, num_classes=num_classes)
+            model = ModuleValidator.fix(model)
+            model.load_state_dict(
+                torch.load(model_info["model_path"], map_location="cpu")
+            )
+        else:
+            model = torch.load(model_info["model_path"])
 
     elif model_args.task_type == "recommendation":
         from recommendation_task_utils.evaluate import load_model
@@ -137,3 +149,15 @@ def load_model(model_info, model_args):
         raise ValueError(f"Invalid task name: {model_args.task_type}")
 
     return model, eval_fn, train_fn, sensitivity_fn
+
+
+def save_model_storage(model_storage, save_path):
+    from scipy.sparse import csr_matrix, csc_matrix, coo_matrix
+
+    # print("sparse matrix type: csr_matrix")
+    # pdb.set_trace()
+    blocks = model_storage["blocks"]
+    # blocks = csr_matrix(blocks)
+    untouched_weights = model_storage["untouch_weights"]
+
+    np.savez(save_path, blocks=blocks, untouched_weights=untouched_weights)

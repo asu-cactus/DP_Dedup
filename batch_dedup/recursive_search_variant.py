@@ -15,9 +15,9 @@ from utils.common import (
 )
 
 
-def run(save_models=False):
+def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args.task_type)
+    models_info = load_models_info(model_args)
     base_model = load_model(models_info[0], model_args)[0]
 
     # Block model
@@ -28,13 +28,14 @@ def run(save_models=False):
     total_sens_compute_time = 0
     total_new_blocks = 0
     blockss_from_base = set()
+    max_acc_drop = 0.0
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution, sens_compute_time = deduplicate_blocks(
+        model_constitution, sens_compute_time, acc_drop = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -45,6 +46,7 @@ def run(save_models=False):
             train_fn,
             sensitivity_fn,
         )
+        max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
         )
@@ -52,26 +54,26 @@ def run(save_models=False):
         blockss_from_base |= blocks_from_base
         total_sens_compute_time += sens_compute_time
 
-        if save_models:
-            from utils.blocker import reconstruct_weight
+        # if save_models:
+        #     from utils.blocker import reconstruct_weight
 
-            if model_args.task_type == "text":
-                from text_task_utils.save_model import save_model
-            reconstruct_weight(model_storage, model, 1, model_constitution)
-            save_model(model, model_info["model_path"] + "-deduped")
+        #     if model_args.task_type == "text":
+        #         from text_task_utils.save_model import save_model
+        #     reconstruct_weight(model_storage, model, 1, model_constitution)
+        #     save_model(model, model_info["model_path"] + "-pruned")
 
-    print(f"{total_new_blocks=}")
-    print(f"All blocks from base: {blockss_from_base}")
-    print(f"Number of blocks from base: {len(blockss_from_base)}")
-    print(f"Total sensitivity compute time: {total_sens_compute_time}   ")
-
+    n_models = len(models_info) - 1
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
         model_args.untouched_weights,
         model_args.n_original_weights,
+        n_models,
     )
-    print(f"Compression ratio: {cr}")
+    print(f"{total_new_blocks=} | {cr=} | {max_acc_drop=}")
+    print(f"All blocks from base: {blockss_from_base}")
+    print(f"Number of blocks from base: {len(blockss_from_base)}")
+    print(f"Total sensitivity compute time: {total_sens_compute_time}   ")
 
 
 def get_used_allzero_indices(
@@ -185,8 +187,6 @@ def deduplicate_blocks(
     )
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
-    if len(allzerograd_seq) == 0:
-        return model_constitution, sens_compute_time
 
     # Start deduplication
     temp_constitution = model_constitution.copy()
@@ -224,11 +224,14 @@ def deduplicate_blocks(
 
     if acc >= acc_threshold:
         model_constitution = temp_constitution
+    acc_drop = model_info["original_acc"] - acc
+    if len(allzerograd_seq) == 0:
+        print(
+            f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}"
+        )
+        print(f"Model constitution after dedup: {model_constitution}")
 
-    print(f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}")
-    print(f"Model constitution after dedup: {model_constitution}")
-
-    return model_constitution, sens_compute_time
+    return model_constitution, sens_compute_time, acc_drop
 
 
 def recursive_deduplicate(

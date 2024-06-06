@@ -16,7 +16,7 @@ from utils.common import (
 
 def run():
     model_args, data_args, training_args = parse_args()
-    models_info = load_models_info(model_args.task_type)
+    models_info = load_models_info(model_args)
     # model_paths = [info["model_path"] for info in models_info]
 
     base_model = load_model(models_info[0], model_args)[0]
@@ -26,13 +26,14 @@ def run():
 
     total_new_blocks = 0
     blockss_from_base = set()
+    max_acc_drop = 0.0
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution = deduplicate_blocks(
+        model_constitution, acc_drop = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -43,22 +44,24 @@ def run():
             train_fn,
             sensitivity_fn,
         )
+        max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
-    print(f"\n{total_new_blocks=}")
-    print(f"All blocks from base: {blockss_from_base}")
-    print(f"Number of blocks from base: {len(blockss_from_base)}")
 
+    n_models = len(models_info) - 1
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
         model_args.untouched_weights,
         model_args.n_original_weights,
+        n_models,
     )
-    print(f"Compression ratio: {cr}")
+    print(f"{total_new_blocks=} | {cr=} | {max_acc_drop=}")
+    print(f"All blocks from base: {blockss_from_base}")
+    print(f"Number of blocks from base: {len(blockss_from_base)}")
 
 
 def deduplicate_blocks(
@@ -230,8 +233,7 @@ def deduplicate_blocks(
     # Deduplicate all-zero sensitivity blocks
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
-    if len(allzerograd_seq) == 0:
-        return model_constitution
+
     # Start deduplication
     temp_constitution = model_constitution.copy()
     for i in allzerograd_seq:
@@ -269,9 +271,12 @@ def deduplicate_blocks(
     if acc >= acc_threshold:
         model_constitution = temp_constitution
 
-    print(
-        f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}, dedup success: {acc >= acc_threshold}"
-    )
-    print(f"Model constitution after dedup: {model_constitution}\n")
+    acc_drop = model_info["original_acc"] - acc
 
-    return model_constitution
+    if len(allzerograd_seq) == 0:
+        print(
+            f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}, dedup success: {acc >= acc_threshold}"
+        )
+        print(f"Model constitution after dedup: {model_constitution}\n")
+
+    return model_constitution, acc_drop

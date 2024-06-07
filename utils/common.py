@@ -82,16 +82,19 @@ def merge_model_storage(base_model_storage, curr_model_storage):
     }
 
 
-def separate_blocks(model_constitution, n_base_blocks):
-    new_blocks = []
+def separate_blocks(model_constitution, n_base_blocks, return_new_blocks=False):
+    new_blocks = set()
     blocks_from_base = set()
     for block in model_constitution:
         if block < n_base_blocks:
             blocks_from_base.add(block)
         else:
-            new_blocks.append(block)
+            new_blocks.add(block)
     print(f"New blocks: {new_blocks}")
     print(f"Blocks from base: {blocks_from_base}")
+
+    if return_new_blocks:
+        return len(new_blocks), blocks_from_base, new_blocks
     return len(new_blocks), blocks_from_base
 
 
@@ -126,15 +129,10 @@ def load_model(model_info, model_args):
             get_block_sensitivity as sensitivity_fn,
         )
 
-        if not model_args.prune:
-            # model = timm.create_model(model_args.model, num_classes=num_classes, pretrained=True)
-            model = timm.create_model(model_args.model, num_classes=num_classes)
-            model = ModuleValidator.fix(model)
-            model.load_state_dict(
-                torch.load(model_info["model_path"], map_location="cpu")
-            )
-        else:
-            model = torch.load(model_info["model_path"])
+        # model = timm.create_model(model_args.model, num_classes=num_classes, pretrained=True)
+        model = timm.create_model(model_args.model, num_classes=num_classes)
+        model = ModuleValidator.fix(model)
+        model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
 
     elif model_args.task_type == "recommendation":
         from recommendation_task_utils.evaluate import load_model
@@ -152,12 +150,8 @@ def load_model(model_info, model_args):
 
 
 def save_model_storage(model_storage, save_path):
-    from scipy.sparse import csr_matrix, csc_matrix, coo_matrix
-
-    # print("sparse matrix type: csr_matrix")
-    # pdb.set_trace()
-    blocks = model_storage["blocks"]
-    # blocks = csr_matrix(blocks)
-    untouched_weights = model_storage["untouch_weights"]
-
-    np.savez(save_path, blocks=blocks, untouched_weights=untouched_weights)
+    np.savez(
+        save_path,
+        blocks=model_storage["blocks"],
+        untouched_weights=model_storage["untouch_weights"],
+    )

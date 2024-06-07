@@ -1,6 +1,6 @@
 {
     "0": {
-        "model_path": "../models/resnet0.4_after_pruning.pth",
+        "model_path": "../models/in1k_CelebA_eps0.4.pt",
         "task_name": "CelebA",
         "acc_drop_threshold": 0,
         "original_acc": 0,
@@ -8,10 +8,10 @@
         "allowed_budget": 0.4
     },
     "1": {
-        "model_path": "../models/resnet0.6_after_pruning.pth",
+        "model_path": "../models/in1k_CelebA_eps0.6.pt",
         "task_name": "CelebA",
         "acc_drop_threshold": 0.015,
-        "original_acc": 0.7627,
+        "original_acc": 0.8157,
         "budget": 0.6,
         "allowed_budget": 1.0
     }

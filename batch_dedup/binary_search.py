@@ -1,8 +1,9 @@
 import pdb
+from copy import deepcopy
 import numpy as np
 
 from utils.parse_args import parse_args
-from utils.blocker import block_model_1d, reconstruct_weight
+from utils.blocker import block_model_1d
 from utils.common import (
     load_models_info,
     load_model,
@@ -12,7 +13,8 @@ from utils.common import (
     set_model_args,
     save_model_storage,
 )
-from utils.quantization import save_model, quant_and_dequant_model
+from utils.quantization import quant_and_dequant_model
+from utils.pruning import prune_model, sparsify_model_storage
 
 
 def run():
@@ -21,11 +23,19 @@ def run():
 
     base_model = load_model(models_info[0], model_args)[0]
     # Block model
+    if model_args.quantize and model_args.prune:
+        raise ValueError(
+            "Current implementation doesn't support quantization and pruning at the same time"
+        )
     if model_args.quantize:
         deq_model, quant_data, _ = quant_and_dequant_model(base_model)
         base_model_storage = block_model_1d(model_args.block_size, deq_model)
+    elif model_args.prune:
+        p_model = prune_model(base_model)
+        base_model_storage = block_model_1d(model_args.block_size, p_model)
     else:
         base_model_storage = block_model_1d(model_args.block_size, base_model)
+
     n_base_blocks = base_model_storage["blocks"].shape[0]
     set_model_args(model_args, base_model, base_model_storage)
 
@@ -39,38 +49,61 @@ def run():
         curr_model_storage = block_model_1d(model_args.block_size, model)
         if model_args.quantize:
             save_path = model_info["model_path"].replace(".pt", "_wo_quant.npz")
-            save_model(curr_model_storage, save_path)
+            save_model_storage(curr_model_storage, save_path)
             deq_model, _, q_model = quant_and_dequant_model(model, quant_data)
 
-            # # Measure the accuracy of the model after quantization before deduplication
-            # deq_model_storage = block_model_1d(model_args.block_size, deq_model)
-            # nblocks = deq_model_storage["blocks"].shape[0]
-            # deq_model_storage["model_range"] = [0, nblocks - 1]
-            # deq_model_storage["untouch_weights"] = [
-            #     deq_model_storage["untouch_weights"]
-            # ]
-            # eval_fn(
-            #     data_args,
-            #     model_args,
-            #     training_args,
-            #     model_info,
-            #     list(range(nblocks - 1)),
-            #     deq_model_storage,
-            #     0,
-            # )
+            # Measure the accuracy of the model after quantization before deduplication
+            deq_model_storage = block_model_1d(model_args.block_size, deq_model)
+            nblocks = deq_model_storage["blocks"].shape[0]
+            deq_model_storage["model_range"] = [0, nblocks - 1]
+            deq_model_storage["untouch_weights"] = [
+                deq_model_storage["untouch_weights"]
+            ]
+            eval_fn(
+                data_args,
+                model_args,
+                training_args,
+                model_info,
+                list(range(nblocks - 1)),
+                deq_model_storage,
+                0,
+            )
 
             # Make sure blocks are integers.
             q_model_storage = block_model_1d(model_args.block_size, q_model)
             q_model_storage["blocks"] = q_model_storage["blocks"].astype(np.int8)
+            for name, params in q_model_storage["untouch_weights"].items():
+                q_model_storage["untouch_weights"][name] = params.astype(np.int8)
             save_path = model_info["model_path"].replace(".pt", "_w_quant.npz")
-
-            save_model(q_model_storage, save_path)
+            save_model_storage(q_model_storage, save_path)
             curr_model_storage = block_model_1d(model_args.block_size, deq_model)
-        # if model_args.prune:
-        #     save_path = model_info["model_path"].replace(".pth", "_wo_dedup.npz")
-        #     save_model_storage(curr_model_storage, save_path)
-        model_storage = merge_model_storage(base_model_storage, curr_model_storage)
+        if model_args.prune:
+            save_path = model_info["model_path"].replace(".pt", "_wo_prune.npz")
+            save_model_storage(curr_model_storage, save_path)
+            p_model = prune_model(model)
 
+            # Measure the accuracy of the model after quantization before deduplication
+            p_model_storage = block_model_1d(model_args.block_size, p_model)
+            nblocks = p_model_storage["blocks"].shape[0]
+            p_model_storage["model_range"] = [0, nblocks - 1]
+            p_model_storage["untouch_weights"] = [p_model_storage["untouch_weights"]]
+            eval_fn(
+                data_args,
+                model_args,
+                training_args,
+                model_info,
+                list(range(nblocks - 1)),
+                p_model_storage,
+                0,
+            )
+
+            curr_model_storage = deepcopy(p_model_storage)
+
+            sparsify_model_storage(p_model_storage)
+            save_path = model_info["model_path"].replace(".pt", "_w_prune.npz")
+            save_model_storage(p_model_storage, save_path)
+
+        model_storage = merge_model_storage(base_model_storage, curr_model_storage)
         model_constitution, acc_drop = deduplicate_blocks(
             model_args,
             data_args,
@@ -83,16 +116,22 @@ def run():
             sensitivity_fn,
         )
         max_acc_drop = max(max_acc_drop, acc_drop)
-        n_new_blocks, blocks_from_base = separate_blocks(
-            model_constitution, n_base_blocks
+        n_new_blocks, blocks_from_base, blocks_from_current = separate_blocks(
+            model_constitution, n_base_blocks, return_new_blocks=True
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
+
+        if model_args.quantize:
+            blocks_from_current = list(blocks_from_current)
+            curr_model_storage["blocks"] = model_storage["blocks"][blocks_from_current]
+            save_path = model_info["model_path"].replace(".pt", "_quant_dedup.npz")
+            save_model_storage(curr_model_storage, save_path)
         if model_args.prune:
-            unique_blocks = np.unique(model_constitution)
-            curr_model_storage["blocks"] = model_storage["blocks"][unique_blocks]
-            reconstruct_weight(model_storage, model, 1, model_constitution)
-            save_path = model_info["model_path"].replace(".pth", "_w_dedup.npz")
+            blocks_from_current = list(blocks_from_current)
+            curr_model_storage["blocks"] = model_storage["blocks"][blocks_from_current]
+            sparsify_model_storage(curr_model_storage)
+            save_path = model_info["model_path"].replace(".pt", "_prune_dedup.npz")
             save_model_storage(curr_model_storage, save_path)
 
     n_models = len(models_info) - 1

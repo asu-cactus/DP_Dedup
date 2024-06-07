@@ -53,14 +53,6 @@ def dequant_model(model, quant_data):
     return model
 
 
-def save_model(model_storage, save_path):
-    np.savez(
-        save_path,
-        blocks=model_storage["blocks"],
-        untouch_weights=model_storage["untouch_weights"],
-    )
-
-
 def quant_and_dequant_model(model, quant_data=None):
     q_model, quant_data = quant_model(model, quant_data)
     deq_model = dequant_model(q_model, quant_data)

@@ -27,7 +27,10 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether to quantize the model"},
     )
-
+    heter: bool = field(
+        default=False,
+        metadata={"help": "Whether to use heterogeneous model deduplication"},
+    )
     # For text task
     model_name_or_path: Optional[str] = field(
         default="",
@@ -446,7 +449,7 @@ def parse_args():
         data_args.dataset_name = "CIFAR100"
         training_args.bs = 500
         training_args.mini_bs = 50
-        model_args.block_size = 1048576
+        model_args.block_size = 1048576 if not model_args.heter else 262144
         # model_args.untouched_weights = 1414244
         # model_args.n_original_weights = 303404132
     elif model_args.task_type == "vision_resnet":

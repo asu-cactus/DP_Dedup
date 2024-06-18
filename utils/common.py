@@ -15,12 +15,18 @@ def load_models_info(model_args) -> list[dict]:
     if model_args.task_type == "text":
         model_info_path = "models/text.json"
     elif model_args.task_type == "vision_vit":
-        model_info_path = "models/vision_vit.json"
+        if model_args.heter:
+            model_info_path = "models/vision_vit_heter.json"
+        else:
+            model_info_path = "models/vision_vit.json"
+
     elif model_args.task_type == "vision_resnet":
         if model_args.prune:
             model_info_path = "models/vision_resnet_pruned.json"
         elif model_args.quantize:
             model_info_path = "models/vision_resnet_quantized.json"
+        elif model_args.heter:
+            model_info_path = "models/vision_resnet_heter.json"
         else:
             model_info_path = "models/vision_resnet.json"
     elif model_args.task_type == "recommendation":
@@ -130,7 +136,12 @@ def load_model(model_info, model_args):
         )
 
         # model = timm.create_model(model_args.model, num_classes=num_classes, pretrained=True)
-        model = timm.create_model(model_args.model, num_classes=num_classes)
+        model_name = (
+            "resnet152.tv2_in1k"
+            if "in1k" in model_info["model_path"]
+            else "vit_large_patch16_224"
+        )
+        model = timm.create_model(model_name, num_classes=num_classes)
         model = ModuleValidator.fix(model)
         model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
 

@@ -446,7 +446,7 @@ def parse_args():
         # model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":
         model_args.model = "vit_large_patch16_224"
-        data_args.dataset_name = "CIFAR100"
+        data_args.dataset_name = "CIFAR100" if not model_args.heter else "CelebA"
         training_args.bs = 500
         training_args.mini_bs = 50
         model_args.block_size = 1048576 if not model_args.heter else 262144

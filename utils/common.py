@@ -88,6 +88,38 @@ def merge_model_storage(base_model_storage, curr_model_storage):
     }
 
 
+def collect_storage(model_storage, curr_model_storage, model_constitution):
+    """
+    Collects the extra storage from the current model storage and adds it to the extra storage.
+    This function assumes that the current model has the same architecture as the base model.
+    model_storage is a dictionary with the following keys:
+    - blocks: np.array, shape: (n_blocks, block_size)
+    - untouch_weights: list of untouch weights
+    - model_constitution: list of model constitution
+    """
+    n_base_blocks = len(model_constitution)
+    new_blocks = [block for block in model_constitution if block >= n_base_blocks]
+    new_blocks = list(set(new_blocks))
+
+    # Collect blocks
+    blocks = model_storage["blocks"]
+    new_block_indices = [block - n_base_blocks for block in new_blocks]
+    new_block_storage = curr_model_storage["blocks"][new_block_indices, :]
+    model_storage["blocks"] = np.concatenate([blocks, new_block_storage], axis=0)
+
+    # Collect untouch_weights
+    model_storage["untouch_weights"].append(curr_model_storage["untouch_weights"])
+
+    # Modify and collect model_constitution
+    start_index = model_storage["blocks"].shape[0]
+    new_indices = {block: start_index + i for i, block in enumerate(new_blocks)}
+    model_constitution = [new_indices.get(block, block) for block in model_constitution]
+    model_constitution = np.array(model_constitution, dtype=int)
+    model_storage["model_constitution"].append(model_constitution)
+
+    return model_storage
+
+
 def separate_blocks(model_constitution, n_base_blocks, return_new_blocks=False):
     new_blocks = set()
     blocks_from_base = set()

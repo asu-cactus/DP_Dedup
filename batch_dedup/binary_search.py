@@ -12,6 +12,7 @@ from utils.common import (
     compute_compression_ratio,
     set_model_args,
     save_model_storage,
+    collect_storage,
 )
 from utils.quantization import quant_and_dequant_model
 from utils.pruning import prune_model, sparsify_model_storage
@@ -38,6 +39,11 @@ def run():
 
     n_base_blocks = base_model_storage["blocks"].shape[0]
     set_model_args(model_args, base_model, base_model_storage)
+    total_model_storage = {
+        "blocks": base_model_storage["blocks"],
+        "untouch_weights": [base_model_storage["untouch_weights"]],
+        "model_constitution": [np.arange(n_base_blocks)],
+    }
 
     # Deduplicate blocks for each model
     total_new_blocks = 0
@@ -115,12 +121,22 @@ def run():
             train_fn,
             sensitivity_fn,
         )
+
         max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base, blocks_from_current = separate_blocks(
             model_constitution, n_base_blocks, return_new_blocks=True
         )
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
+
+        cr = compute_compression_ratio(
+            n_new_blocks,
+            model_args.block_size,
+            model_args.untouched_weights,
+            model_args.n_original_weights,
+            1,
+        )
+        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}")
 
         if model_args.quantize:
             blocks_from_current = list(blocks_from_current)
@@ -133,6 +149,12 @@ def run():
             sparsify_model_storage(curr_model_storage)
             save_path = model_info["model_path"].replace(".pt", "_prune_dedup.npz")
             save_model_storage(curr_model_storage, save_path)
+        if model_args.save_combined_storage:
+            collect_storage(total_model_storage, curr_model_storage, model_constitution)
+
+    if model_args.save_combined_storage:
+        save_path = f"../models/{model_args.task_type}_combined_storage.npz"
+        np.savez(save_path, **total_model_storage)
 
     n_models = len(models_info) - 1
     cr = compute_compression_ratio(

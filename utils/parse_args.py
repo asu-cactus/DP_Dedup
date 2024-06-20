@@ -31,6 +31,10 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether to use heterogeneous model deduplication"},
     )
+    save_combined_storage: bool = field(
+        default=False,
+        metadata={"help": "Whether to save the combined storage"},
+    )
     # For text task
     model_name_or_path: Optional[str] = field(
         default="",

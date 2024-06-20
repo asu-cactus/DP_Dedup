@@ -22,7 +22,6 @@ def run():
     base_model = load_model(models_info[0], model_args)[0]
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
-    set_model_args(model_args, base_model, base_model_storage)
 
     total_new_blocks = 0
     blockss_from_base = set()
@@ -31,6 +30,7 @@ def run():
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
+        set_model_args(model_args, model, curr_model_storage)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
         model_constitution, acc_drop = deduplicate_blocks(
@@ -51,6 +51,14 @@ def run():
         total_new_blocks += n_new_blocks
         blockss_from_base |= blocks_from_base
 
+        cr = compute_compression_ratio(
+            n_new_blocks,
+            model_args.block_size,
+            model_args.untouched_weights,
+            model_args.n_original_weights,
+            1,
+        )
+        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}")
     n_models = len(models_info) - 1
     cr = compute_compression_ratio(
         total_new_blocks,

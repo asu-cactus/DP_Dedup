@@ -38,7 +38,6 @@ def run():
         base_model_storage = block_model_1d(model_args.block_size, base_model)
 
     n_base_blocks = base_model_storage["blocks"].shape[0]
-    set_model_args(model_args, base_model, base_model_storage)
     total_model_storage = {
         "blocks": base_model_storage["blocks"],
         "untouch_weights": [base_model_storage["untouch_weights"]],
@@ -53,6 +52,7 @@ def run():
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
+        set_model_args(model_args, model, curr_model_storage)
         if model_args.quantize:
             save_path = model_info["model_path"].replace(".pt", "_wo_quant.npz")
             save_model_storage(curr_model_storage, save_path)

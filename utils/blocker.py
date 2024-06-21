@@ -179,7 +179,7 @@ def reconstruct_weight_helper(
     untouched_weights=None,
 ):
     start_idx = 0
-    non_bias_idx = 0
+    # non_bias_idx = 0
     block_size = blocks.shape[1]
 
     for name, params in model.named_parameters():
@@ -205,7 +205,7 @@ def reconstruct_weight_helper(
             params.copy_(torch.from_numpy(new_weight.reshape(params.shape)))
 
         start_idx = end_idx
-        non_bias_idx += 1
+        # non_bias_idx += 1
 
 
 if __name__ == "__main__":

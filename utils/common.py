@@ -101,6 +101,13 @@ def collect_storage(model_storage, curr_model_storage, model_constitution):
     new_blocks = [block for block in model_constitution if block >= n_base_blocks]
     new_blocks = list(set(new_blocks))
 
+    # Modify and collect model_constitution
+    start_index = model_storage["blocks"].shape[0]
+    new_indices = {block: start_index + i for i, block in enumerate(new_blocks)}
+    model_constitution = [new_indices.get(block, block) for block in model_constitution]
+    model_constitution = np.array(model_constitution, dtype=int)
+    model_storage["model_constitution"].append(model_constitution)
+
     # Collect blocks
     blocks = model_storage["blocks"]
     new_block_indices = [block - n_base_blocks for block in new_blocks]
@@ -109,13 +116,6 @@ def collect_storage(model_storage, curr_model_storage, model_constitution):
 
     # Collect untouch_weights
     model_storage["untouch_weights"].append(curr_model_storage["untouch_weights"])
-
-    # Modify and collect model_constitution
-    start_index = model_storage["blocks"].shape[0]
-    new_indices = {block: start_index + i for i, block in enumerate(new_blocks)}
-    model_constitution = [new_indices.get(block, block) for block in model_constitution]
-    model_constitution = np.array(model_constitution, dtype=int)
-    model_storage["model_constitution"].append(model_constitution)
 
     return model_storage
 

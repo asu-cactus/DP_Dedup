@@ -60,6 +60,7 @@ def reconstruct_weight(model, model_storage, model_id):
 def inference(args, model_ids):
     inference_time = 0.0
     model_loading_time = 0.0
+    device = torch.device("cuda:0" if args.gpu else "cpu")
 
     assert args.batch_size % args.mini_bs == 0
     n_iter = args.batch_size // args.mini_bs
@@ -68,6 +69,7 @@ def inference(args, model_ids):
     models_info = load_models_info(args)
     model = timm.create_model(args.model_name, num_classes=args.num_classes)
     model = ModuleValidator.fix(model)
+    model = model.to(device)
 
     # Load model_storage
     if args.load_from == "memory":
@@ -104,7 +106,7 @@ def inference(args, model_ids):
                 break
             inference_start = time()
             with torch.no_grad():
-                model(inputs)
+                model(inputs.to(device))
             inference_end = time()
             inference_time += inference_end - inference_start
 
@@ -155,6 +157,11 @@ if __name__ == "__main__":
         default=4,
         help="Number of workers for dataloader",
     )
+    parser.add_argument(
+        "--gpu",
+        action="store_true",
+        help="Use GPU for inference",
+    )
 
     args = parser.parse_args()
     args.dataset_name = "CIFAR100"
@@ -164,8 +171,3 @@ if __name__ == "__main__":
 
     model_ids = workload_generate(args)
     inference(args, model_ids)
-
-# From disk:
-# Model loading time: 72.8750
-# Inference time: 175.8907
-# Total time: 248.7657

@@ -114,7 +114,10 @@ def gradient_sensitity(
     accum_iter = sample_size / batch_size
 
     for batch_idx, (inputs, targets) in enumerate(testloader):
-        inputs, targets = inputs.cuda(), targets.cuda()
+        try:
+            inputs, targets = inputs.cuda(), targets.cuda()
+        except:
+            pdb.set_trace()
         outputs = model(inputs)
 
         if dataset_name == "CelebA":

@@ -31,6 +31,16 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether to use heterogeneous model deduplication"},
     )
+    big_batch: bool = field(
+        default=False,
+        metadata={"help": "Whether to use a big batch of 20, otherwise 5 models"},
+    )
+    inter_data_mode: str = field(
+        default="None",
+        metadata={
+            "help": "Inter-data mode. Choice: None, cifar100_celeba, celeba_cifar100"
+        },
+    )
     save_combined_storage: bool = field(
         default=False,
         metadata={"help": "Whether to save the combined storage"},

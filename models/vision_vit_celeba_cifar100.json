@@ -1,11 +1,11 @@
 {
     "0": {
-        "model_path": "../models/large_CIFAR100_eps0.5.pt",
-        "task_name": "CIFAR100",
+        "model_path": "../models/large_CelebA_eps0.4.pt",
+        "task_name": "CelebA",
         "acc_drop_threshold": 0.02,
-        "original_acc": 0.810,
-        "budget": 0.5,
-        "allowed_budget": 0.5
+        "original_acc": 0.8893,
+        "budget": 0.4,
+        "allowed_budget": 0.4
     },
     "1": {
         "model_path": "../models/large_CIFAR100_eps0.6.pt",
@@ -13,7 +13,7 @@
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8331,
         "budget": 0.6,
-        "allowed_budget": 1.1
+        "allowed_budget": 0.6
     },
     "3": {
         "model_path": "../models/large_CIFAR100_eps0.75.pt",
@@ -21,7 +21,7 @@
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8558,
         "budget": 0.75,
-        "allowed_budget": 1.25
+        "allowed_budget": 0.75
     },
     "5": {
         "model_path": "../models/large_CIFAR100_eps1.0.pt",
@@ -29,7 +29,7 @@
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8757,
         "budget": 1.0,
-        "allowed_budget": 1.5
+        "allowed_budget": 1.0
     },
     "6": {
         "model_path": "../models/large_CIFAR100_eps2.0.pt",
@@ -37,6 +37,6 @@
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8964,
         "budget": 2.0,
-        "allowed_budget": 2.5
+        "allowed_budget": 2.0
     }
 }

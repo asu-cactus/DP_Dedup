@@ -17,6 +17,12 @@ def load_models_info(model_args) -> list[dict]:
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
+        elif model_args.big_batch:
+            model_info_path = "models/vision_vit_20models.json"
+        elif model_args.inter_data_mode == "cifar100_celeba":
+            model_info_path = "models/vision_vit_cifar100_celeba.json"
+        elif model_args.inter_data_mode == "celeba_cifar100":
+            model_info_path = "models/vision_vit_celeba_cifar100.json"
         else:
             model_info_path = "models/vision_vit.json"
 

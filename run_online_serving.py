@@ -69,7 +69,6 @@ def inference(args, model_ids):
     models_info = load_models_info(args)
     model = timm.create_model(args.model_name, num_classes=args.num_classes)
     model = ModuleValidator.fix(model)
-    model = model.to(device)
 
     # Load model_storage
     if args.load_from == "memory":
@@ -94,6 +93,7 @@ def inference(args, model_ids):
             model_loading_end = time()
         model_loading_time += model_loading_end - model_loading_start
 
+        model = model.to(device)
         testloader = torch.utils.data.DataLoader(
             testset,
             batch_size=args.mini_bs,

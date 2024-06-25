@@ -73,9 +73,9 @@ def inference(args, model_ids):
     # Load model_storage
     if args.load_from == "memory":
         if args.n_models == 5:
-            storage_path = "../models/vision_vit_combined_storage.npz"
+            storage_path = "../models/vision_vit_5models_storage.npz"
         else:
-            storage_path = "../models/vision_vit_20models_combined_storage.npz"
+            storage_path = "../models/vision_vit_20models_storage.npz"
         model_storage = np.load(storage_path, allow_pickle=True)
 
     # Load dataset
@@ -115,21 +115,34 @@ def inference(args, model_ids):
 
 
 def workload_generate(args):
-    rng = np.random.default_rng(seed=42)
-    model_ids = rng.integers(args.n_models, size=args.n_runs)
+    repeats = 10
+    if args.workload == "random":
+        rng = np.random.default_rng(seed=42)
+        n_runs = repeats * args.n_models
+        model_ids = rng.integers(args.n_models, size=n_runs)
+    else:
+        model_ids = np.tile(np.arange(args.n_models), repeats)
+    print(f"Workload: {model_ids}")
     return model_ids
 
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="Compare inference time")
     parser.add_argument(
         "-L",
         "--load_from",
         required=True,
         type=str,
-        help="Whether to load model from memory or from disk",
         choices=["memory", "disk"],
+        help="Whether to load model from memory or from disk",
+    )
+    parser.add_argument(
+        "-W",
+        "--workload",
+        required=True,
+        type=str,
+        choices=["random", "roundrobin"],
+        help="Workload type",
     )
     parser.add_argument("--n_models", default=5, type=int, help="Number of models")
     parser.add_argument(
@@ -143,12 +156,6 @@ if __name__ == "__main__":
         type=int,
         default=16,
         help="Batch size for inference",
-    )
-    parser.add_argument(
-        "--n_runs",
-        type=int,
-        default=100,
-        help="Number of runs for inference",
     )
     parser.add_argument(
         "--num_workers",

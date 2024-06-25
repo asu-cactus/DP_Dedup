@@ -153,7 +153,8 @@ def run():
             collect_storage(total_model_storage, curr_model_storage, model_constitution)
 
     if model_args.save_combined_storage:
-        save_path = f"../models/{model_args.task_type}_combined_storage.npz"
+        n_models = len(models_info)
+        save_path = f"../models/{model_args.task_type}_{n_models}models_storage.npz"
         np.savez(save_path, **total_model_storage)
 
     n_models = len(models_info) - 1

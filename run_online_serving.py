@@ -82,18 +82,17 @@ def inference(args, model_ids):
     testset = load_vision_dataset(args)
 
     for model_id in model_ids:
+        model_loading_start = time()
+        model.to("cpu")
         if args.load_from == "disk":
-            model_loading_start = time()
             model_path = models_info[model_id]["model_path"]
             model.load_state_dict(torch.load(model_path, map_location="cpu"))
-            model_loading_end = time()
         else:
-            model_loading_start = time()
             reconstruct_weight(model, model_storage, model_id)
-            model_loading_end = time()
+        model.to(device)
+        model_loading_end = time()
         model_loading_time += model_loading_end - model_loading_start
 
-        model = model.to(device)
         testloader = torch.utils.data.DataLoader(
             testset,
             batch_size=args.mini_bs,

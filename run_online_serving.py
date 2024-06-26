@@ -112,13 +112,13 @@ def inference(args, model_ids):
 
 
 def workload_generate(args):
-    repeats = 10
+    n_queries = 100
+    assert n_queries % args.n_models == 0
     if args.workload == "random":
         rng = np.random.default_rng(seed=42)
-        n_runs = repeats * args.n_models
-        model_ids = rng.integers(args.n_models, size=n_runs)
+        model_ids = rng.integers(args.n_models, size=n_queries)
     else:
-        model_ids = np.tile(np.arange(args.n_models), repeats)
+        model_ids = np.tile(np.arange(args.n_models), n_queries // args.n_models)
     print(f"Workload: {model_ids}")
     return model_ids
 

@@ -28,7 +28,6 @@ def load_models_info(args):
 
 
 def reconstruct_weight(model, model_storage, model_id):
-    # pdb.set_trace()
     model_constitution = model_storage["model_constitution"][model_id]
     blocks = model_storage["blocks"]
     untouched_weights = model_storage["untouch_weights"][model_id]
@@ -37,7 +36,6 @@ def reconstruct_weight(model, model_storage, model_id):
     block_size = blocks.shape[1]
 
     for name, params in model.named_parameters():
-        params.requires_grad_(False)
         if params.squeeze().dim() == 1 or params.numel() < block_size:
             params.copy_(torch.from_numpy(untouched_weights[name]))
             continue
@@ -46,11 +44,7 @@ def reconstruct_weight(model, model_storage, model_id):
         nblocks_for_params = math.ceil(numel / block_size)
         end_idx = start_idx + nblocks_for_params
         constitution_range = model_constitution[start_idx:end_idx]
-
-        try:
-            new_weight = blocks[constitution_range].flatten()[:numel]
-        except:
-            pdb.set_trace()
+        new_weight = blocks[constitution_range].flatten()[:numel]
         # Set parameter to new weight
         params.copy_(torch.from_numpy(new_weight.reshape(params.shape)))
 
@@ -69,6 +63,9 @@ def inference(args, model_ids):
     models_info = load_models_info(args)
     model = timm.create_model(args.model_name, num_classes=args.num_classes)
     model = ModuleValidator.fix(model)
+    model.eval()
+    for param in model.parameters():
+        param.requires_grad_(False)
 
     # Load model_storage
     if args.load_from == "memory":
@@ -148,13 +145,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--mini_bs",
         type=int,
-        default=16,
+        default=1,
         help="Mini batch size for inference",
     )
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=16,
+        default=1,
         help="Batch size for inference",
     )
     parser.add_argument(

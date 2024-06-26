@@ -27,11 +27,7 @@ def load_models_info(args):
     return models_info
 
 
-def reconstruct_weight(model, model_storage, model_id):
-    model_constitution = model_storage["model_constitution"][model_id]
-    blocks = model_storage["blocks"]
-    untouched_weights = model_storage["untouch_weights"][model_id]
-
+def reconstruct_weight(model, blocks, model_constitution, untouched_weights):
     start_idx = 0
     block_size = blocks.shape[1]
 
@@ -74,6 +70,9 @@ def inference(args, model_ids):
         else:
             storage_path = "../models/vision_vit_20models_storage.npz"
         model_storage = np.load(storage_path, allow_pickle=True)
+        model_constitution = model_storage["model_constitution"]
+        blocks = model_storage["blocks"]
+        untouched_weights = model_storage["untouch_weights"]
 
     # Load dataset
     testset = load_vision_dataset(args)
@@ -85,7 +84,9 @@ def inference(args, model_ids):
             model_path = models_info[model_id]["model_path"]
             model.load_state_dict(torch.load(model_path, map_location="cpu"))
         else:
-            reconstruct_weight(model, model_storage, model_id)
+            reconstruct_weight(
+                model, blocks, model_constitution[model_id], untouched_weights[model_id]
+            )
         model.to(device)
         model_loading_end = time()
         model_loading_time += model_loading_end - model_loading_start

@@ -15,15 +15,11 @@ from vision_task_utils.dataset import load_vision_dataset
 def load_models_info(args):
     if args.n_models == 5:
         model_info_path = "models/vision_vit.json"
-    elif args.n_models == 20:
-        model_info_path = "models/vision_vit_20models.json"
     else:
-        raise ValueError("Invalid number of models")
+        model_info_path = "models/vision_vit_20models.json"
     with open(model_info_path, "r") as f:
         models_info = json.load(f)
     models_info = list(models_info.values())
-    # for info in models_info:
-    #     print(info)
     return models_info
 
 
@@ -65,10 +61,7 @@ def inference(args, model_ids):
 
     # Load model_storage
     if args.load_from == "memory":
-        if args.n_models == 5:
-            storage_path = "../models/vision_vit_5models_storage.npz"
-        else:
-            storage_path = "../models/vision_vit_20models_storage.npz"
+        storage_path = f"../models/vision_vit_{args.n_models}models_storage.npz"
         model_storage = np.load(storage_path, allow_pickle=True)
         model_constitution = model_storage["model_constitution"]
         blocks = model_storage["blocks"]

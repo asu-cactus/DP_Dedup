@@ -29,6 +29,7 @@ def evaluate(
     testloader = torch.utils.data.DataLoader(
         testset, batch_size=16, shuffle=False, num_workers=4
     )
+    data_args.val_size = len(testset)
 
     model = load_model(model_info, model_args)[0]
     model.to(device)

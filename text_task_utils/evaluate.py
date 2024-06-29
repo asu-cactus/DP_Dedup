@@ -320,6 +320,7 @@ def evaluate(
         )
 
     print(f"\n*** eval dataset sizes: {len(eval_dataset)}")
+    data_args.val_size = len(eval_dataset)
 
     model = model_fn.from_pretrained(
         model_args.model_name_or_path,

@@ -311,7 +311,15 @@ def recursive_deduplicate(
         model_storage,
         1,
     )
-
+    scale = 4 / (data_args.val_size * training_args.val_epsilon)
+    if not hasattr(data_args, "noise"):
+        data_args.noise = np.random.laplace(loc=0, scale=scale)
+        print(f"Noise to threshold: {data_args.noise}")
+        acc_threshold += data_args.noise
+    scale *= 2 * training_args.max_fails
+    noise = np.random.laplace(loc=0, scale=scale)
+    print(f"Noise to acc: {noise}")
+    acc += noise
     success = False
     if acc >= acc_threshold:
         dedup_indices |= tobe_dedup_indices

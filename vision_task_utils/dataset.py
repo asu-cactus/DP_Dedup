@@ -89,4 +89,5 @@ def load_vision_dataset(data_args):
         testset = getattr(torchvision.datasets, data_args.dataset_name)(
             root="data/", split="val", transform=transformation
         )
+    print(f"Test size: {len(testset)}")
     return testset

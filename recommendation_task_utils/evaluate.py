@@ -142,7 +142,9 @@ def evaluate(
     blocks=None,
 ):
     testloader, test_size = load_dataset(training_args)
+    data_args.val_size = test_size
     model = load_model(model_info["model_path"])
+    print(f"Test size: {test_size}")
 
     if model_constitution:
         if blocks is None:

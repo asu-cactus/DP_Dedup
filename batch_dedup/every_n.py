@@ -217,7 +217,16 @@ def deduplicate_blocks(
                 model_storage,
                 model_id,
             )
+            scale = 4 / (data_args.val_size * training_args.val_epsilon)
+            if not hasattr(data_args, "noise"):
+                data_args.noise = np.random.laplace(loc=0, scale=scale)
+                print(f"Noise to threshold: {data_args.noise}")
+                acc_threshold += data_args.noise
 
+            scale *= 2 * training_args.max_fails
+            noise = np.random.laplace(loc=0, scale=scale)
+            print(f"Noise to acc: {noise}")
+            acc += noise
             if acc >= acc_threshold:
                 dedup_indices |= tobe_dedup_indices
                 used_allzero_indices |= used_allzero_indices_temp
@@ -276,6 +285,7 @@ def deduplicate_blocks(
         model_storage,
         model_id,
     )
+
     if acc >= acc_threshold:
         model_constitution = temp_constitution
 

@@ -33,7 +33,7 @@ def run():
         set_model_args(model_args, model, curr_model_storage)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution, acc_drop = deduplicate_blocks(
+        model_constitution, acc_drop, n_fails = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -58,7 +58,7 @@ def run():
             model_args.n_original_weights,
             1,
         )
-        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}")
+        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}, {n_fails=}")
     n_models = len(models_info) - 1
     cr = compute_compression_ratio(
         total_new_blocks,
@@ -159,6 +159,8 @@ def deduplicate_blocks(
     used_allzero_indices_temp = set()
     # Constitution to be evaluated
     temp_constitution = model_constitution.copy()
+    # Number of fails
+    remain_fails = training_args.max_fails
 
     # for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
     for i in interate_seq:
@@ -241,11 +243,16 @@ def deduplicate_blocks(
                         model_storage,
                         model_id,
                     )
+            else:
+                remain_fails -= 1
+
             tobe_dedup_indices = set()
             used_allzero_indices_temp = set()
             temp_constitution = model_constitution.copy()
             print(f"acc: {acc:.4f}, dedup success: {acc >= acc_threshold}")
             print(f"Model constitution after dedup: {model_constitution}\n")
+            if remain_fails == 0:
+                break
 
     # Deduplicate all-zero sensitivity blocks
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
@@ -297,4 +304,5 @@ def deduplicate_blocks(
         )
         print(f"Model constitution after dedup: {model_constitution}\n")
 
-    return model_constitution, acc_drop
+    n_fails = training_args.max_fails - remain_fails
+    return model_constitution, acc_drop, n_fails

@@ -35,7 +35,7 @@ def run():
         set_model_args(model_args, model, curr_model_storage)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
 
-        model_constitution, sens_compute_time, acc_drop = deduplicate_blocks(
+        model_constitution, sens_compute_time, acc_drop, n_fails = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -61,7 +61,7 @@ def run():
             model_args.n_original_weights,
             1,
         )
-        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}")
+        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}, {n_fails=}")
 
         # if save_models:
         #     from utils.blocker import reconstruct_weight
@@ -173,7 +173,7 @@ def deduplicate_blocks(
     interate_seq = interate_seq.tolist()
     right_seq = []
     dedup_indices = set()
-    model_constitution = recursive_deduplicate(
+    model_constitution, remain_fails = recursive_deduplicate(
         model_args,
         data_args,
         training_args,
@@ -188,6 +188,7 @@ def deduplicate_blocks(
         dedup_indices,
         eval_fn,
         train_fn,
+        training_args.max_fails,
     )
 
     # Deduplicate all-zero sensitivity blocks
@@ -240,7 +241,8 @@ def deduplicate_blocks(
         )
         print(f"Model constitution after dedup: {model_constitution}")
 
-    return model_constitution, sens_compute_time, acc_drop
+    n_fails = training_args.max_fails - remain_fails
+    return model_constitution, sens_compute_time, acc_drop, n_fails
 
 
 def recursive_deduplicate(
@@ -258,10 +260,11 @@ def recursive_deduplicate(
     dedup_indices,
     eval_fn,
     train_fn,
+    remain_fails,
 ):
     # Base case
-    if len(interate_seq) < training_args.min_dedup_len:
-        return model_constitution
+    if len(interate_seq) < training_args.min_dedup_len or remain_fails == 0:
+        return model_constitution, remain_fails
 
     mid_point = len(interate_seq) // 2
     left_seq = interate_seq[:mid_point]
@@ -335,12 +338,14 @@ def recursive_deduplicate(
                 model_storage,
                 1,
             )
+    else:
+        remain_fails -= 1
 
     print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")
 
     if success:
-        model_constitution = recursive_deduplicate(
+        model_constitution, remain_fails = recursive_deduplicate(
             model_args,
             data_args,
             training_args,
@@ -355,9 +360,10 @@ def recursive_deduplicate(
             dedup_indices,
             eval_fn,
             train_fn,
+            remain_fails,
         )
     else:
-        model_constitution = recursive_deduplicate(
+        model_constitution, remain_fails = recursive_deduplicate(
             model_args,
             data_args,
             training_args,
@@ -372,5 +378,6 @@ def recursive_deduplicate(
             dedup_indices,
             eval_fn,
             train_fn,
+            remain_fails,
         )
-    return model_constitution
+    return model_constitution, remain_fails

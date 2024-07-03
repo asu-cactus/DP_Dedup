@@ -17,7 +17,6 @@ from utils.common import (
 def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
-    # model_paths = [info["model_path"] for info in models_info]
 
     base_model = load_model(models_info[0], model_args)[0]
     base_model_storage = block_model_1d(model_args.block_size, base_model)
@@ -26,14 +25,18 @@ def run():
     total_new_blocks = 0
     blockss_from_base = set()
     max_acc_drop = 0.0
+    acc = models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
         set_model_args(model_args, model, curr_model_storage)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
-
-        model_constitution, acc_drop, n_fails = deduplicate_blocks(
+        # The following line guarantees the fairness rule
+        model_info["acc_threshold"] = max(
+            model_info["original_acc"] - model_info["acc_drop_threshold"], acc
+        )
+        model_constitution, acc, n_fails = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -44,6 +47,7 @@ def run():
             train_fn,
             sensitivity_fn,
         )
+        acc_drop = model_info["original_acc"] - acc
         max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
@@ -85,7 +89,7 @@ def deduplicate_blocks(
     distance_metric="l1",
 ):
     # Set parameters
-    acc_threshold = model_info["original_acc"] - model_info["acc_drop_threshold"]
+    acc_threshold = model_info["acc_threshold"]
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
     model_range_start = model_storage["model_range"][model_id]
@@ -181,15 +185,6 @@ def deduplicate_blocks(
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
 
-        # # This part is just for experiment. Will not be used in the final version.
-        # if model_id == 0:
-        #     dist[0 : search_range[i, 0]] = np.inf
-        #     dist[search_range[i, 1] :] = np.inf
-        # else:
-        #     dist[0 : search_range[i - 833, 0]] = np.inf
-        #     dist[search_range[i - 833, 1] : search_range[i - 833, 2]] = np.inf
-        #     dist[search_range[i - 833, 3] :] = np.inf
-
         # Find the most similar block j
         j = -1
         for idx in dist.argsort():
@@ -229,7 +224,7 @@ def deduplicate_blocks(
             noise = np.random.laplace(loc=0, scale=scale)
             print(f"Noise to acc: {noise}")
             acc += noise
-            if acc >= acc_threshold:
+            if acc > acc_threshold:
                 dedup_indices |= tobe_dedup_indices
                 used_allzero_indices |= used_allzero_indices_temp
                 model_constitution = temp_constitution
@@ -249,7 +244,7 @@ def deduplicate_blocks(
             tobe_dedup_indices = set()
             used_allzero_indices_temp = set()
             temp_constitution = model_constitution.copy()
-            print(f"acc: {acc:.4f}, dedup success: {acc >= acc_threshold}")
+            print(f"acc: {acc:.4f}, dedup success: {acc > acc_threshold}")
             print(f"Model constitution after dedup: {model_constitution}\n")
             if remain_fails == 0:
                 break
@@ -293,10 +288,8 @@ def deduplicate_blocks(
         model_id,
     )
 
-    if acc >= acc_threshold:
+    if acc > acc_threshold:
         model_constitution = temp_constitution
-
-    acc_drop = model_info["original_acc"] - acc
 
     if len(allzerograd_seq) == 0:
         print(
@@ -305,4 +298,4 @@ def deduplicate_blocks(
         print(f"Model constitution after dedup: {model_constitution}\n")
 
     n_fails = training_args.max_fails - remain_fails
-    return model_constitution, acc_drop, n_fails
+    return model_constitution, acc, n_fails

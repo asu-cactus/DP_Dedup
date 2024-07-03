@@ -48,6 +48,7 @@ def run():
     total_new_blocks = 0
     blockss_from_base = set()
     max_acc_drop = 0.0
+    acc = models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
@@ -110,7 +111,11 @@ def run():
             save_model_storage(p_model_storage, save_path)
 
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
-        model_constitution, acc_drop, n_fails = deduplicate_blocks(
+        # The following line guarantees the fairness rule
+        model_info["acc_threshold"] = max(
+            model_info["original_acc"] - model_info["acc_drop_threshold"], acc
+        )
+        model_constitution, acc, n_fails = deduplicate_blocks(
             model_args,
             data_args,
             training_args,
@@ -121,7 +126,7 @@ def run():
             train_fn,
             sensitivity_fn,
         )
-
+        acc_drop = model_info["original_acc"] - acc
         max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base, blocks_from_current = separate_blocks(
             model_constitution, n_base_blocks, return_new_blocks=True
@@ -193,7 +198,7 @@ def deduplicate_blocks(
     distance_metric="l1",
 ):
     # Set parameters
-    acc_threshold = model_info["original_acc"] - model_info["acc_drop_threshold"]
+    acc_threshold = model_info["acc_threshold"]
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
     model_range_start = model_storage["model_range"][model_id]
@@ -312,10 +317,8 @@ def deduplicate_blocks(
         model_id,
     )
 
-    if acc >= acc_threshold:
+    if acc > acc_threshold:
         model_constitution = temp_constitution
-
-    acc_drop = model_info["original_acc"] - acc
 
     if len(allzerograd_seq) > 0:
         print(
@@ -324,7 +327,7 @@ def deduplicate_blocks(
         print(f"Model constitution after dedup: {model_constitution}")
 
     n_fails = training_args.max_fails - remain_fails
-    return model_constitution, acc_drop, n_fails
+    return model_constitution, acc, n_fails
 
 
 def recursive_deduplicate(
@@ -405,7 +408,7 @@ def recursive_deduplicate(
     print(f"Noise to acc: {noise}")
     acc += noise
     success = False
-    if acc >= acc_threshold:
+    if acc > acc_threshold:
         dedup_indices |= tobe_dedup_indices
         model_constitution = temp_constitution
         success = True

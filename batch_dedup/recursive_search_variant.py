@@ -57,8 +57,6 @@ def run():
             sensitivity_fn,
         )
 
-        acc_drop = model_info["original_acc"] - acc
-        max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
         )

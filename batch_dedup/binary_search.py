@@ -131,8 +131,7 @@ def run():
             train_fn,
             sensitivity_fn,
         )
-        acc_drop = model_info["original_acc"] - acc
-        max_acc_drop = max(max_acc_drop, acc_drop)
+
         n_new_blocks, blocks_from_base, blocks_from_current = separate_blocks(
             model_constitution, n_base_blocks, return_new_blocks=True
         )

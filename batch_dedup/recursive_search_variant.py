@@ -304,7 +304,7 @@ def recursive_deduplicate(
 ):
     # Base case
     if len(interate_seq) < training_args.min_dedup_len or remain_fails == 0:
-        return model_constitution, remain_fails, 0
+        return model_constitution, remain_fails
 
     mid_point = len(interate_seq) // 2
     left_seq = interate_seq[:mid_point]

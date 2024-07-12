@@ -67,16 +67,19 @@ def compute_compression_ratio(
     block_size: int,
     untouched_weights: int,
     n_original_weights: int,
-    n_models: int = 4,
+    n_models: int,
 ) -> float:
-    if n_models == 1:
-        return (remaining_blocks * block_size + untouched_weights) / n_original_weights
+    n_before = remaining_blocks * block_size + untouched_weights * n_models
+    n_after = n_original_weights * n_models
+    return n_before / n_after
+    # if n_models == 1:
+    #     return (remaining_blocks * block_size + untouched_weights) / n_original_weights
 
-    return (
-        remaining_blocks * block_size
-        + untouched_weights * n_models
-        + n_original_weights
-    ) / (n_original_weights * (n_models + 1))
+    # return (
+    #     remaining_blocks * block_size
+    #     + untouched_weights * n_models
+    #     + n_original_weights
+    # ) / (n_original_weights * (n_models + 1))
 
 
 def merge_model_storage(base_model_storage, curr_model_storage):
@@ -204,3 +207,38 @@ def save_model_storage(model_storage, save_path):
         blocks=model_storage["blocks"],
         untouched_weights=model_storage["untouch_weights"],
     )
+
+
+def longest_increasing_subsequence(arr):
+    if not arr:
+        return []
+
+    n = len(arr)
+    lis = [1] * n  # Initialize LIS values for all indexes as 1
+    prev_index = [-1] * n  # To track the previous index in the LIS
+
+    # Compute LIS values in a bottom-up manner
+    for i in range(1, n):
+        for j in range(0, i):
+            if arr[i] > arr[j] and lis[i] < lis[j] + 1:
+                lis[i] = lis[j] + 1
+                prev_index[i] = j
+
+    # Find the maximum value in lis[] and its index
+    max_len = max(lis)
+    max_index = lis.index(max_len)
+
+    # Reconstruct the longest increasing subsequence
+    lis_index = []
+    # lis_sequence = []
+    while max_index != -1:
+        lis_index.append(max_index)
+        # lis_sequence.append(arr[max_index])
+        max_index = prev_index[max_index]
+
+    # Reverse the lis_sequence since we built it backwards
+    lis_index.reverse()
+    # lis_sequence = [arr[i] for i in lis_index]
+
+    # return lis_index, lis_sequence
+    return lis_index

@@ -12,7 +12,10 @@ from utils.common import (
     separate_blocks,
     compute_compression_ratio,
     set_model_args,
+    longest_increasing_subsequence,
 )
+
+n_evals = 0
 
 
 def run():
@@ -25,9 +28,12 @@ def run():
     n_base_blocks = base_model_storage["blocks"].shape[0]
 
     total_sens_compute_time = 0
-    total_new_blocks = 0
-    blockss_from_base = set()
-    max_acc_drop = 0.0
+    # Deduplicate blocks for each model
+    blockss_from_base = []
+    accs = [models_info[0]["original_acc"]]
+    n_new_blockss = [n_base_blocks]
+    n_evalss, n_failss, crs = [0], [0], [1.0]
+
     acc = models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
@@ -50,13 +56,14 @@ def run():
             train_fn,
             sensitivity_fn,
         )
+
         acc_drop = model_info["original_acc"] - acc
         max_acc_drop = max(max_acc_drop, acc_drop)
         n_new_blocks, blocks_from_base = separate_blocks(
             model_constitution, n_base_blocks
         )
-        total_new_blocks += n_new_blocks
-        blockss_from_base |= blocks_from_base
+        n_new_blockss.append(n_new_blocks)
+        blockss_from_base.append(blocks_from_base)
         total_sens_compute_time += sens_compute_time
 
         cr = compute_compression_ratio(
@@ -66,8 +73,14 @@ def run():
             model_args.n_original_weights,
             1,
         )
-        print(f"Current model {n_new_blocks=}, {cr=}, {acc_drop=}, {n_fails=}")
-
+        global n_evals
+        print(f"Current model {n_new_blocks=}, {cr=}, {acc=}, {n_fails=}, {n_evals=}")
+        # Record the results
+        accs.append(acc)
+        n_evalss.append(n_evals)
+        n_failss.append(n_fails)
+        crs.append(cr)
+        n_evals = 0
         # if save_models:
         #     from utils.blocker import reconstruct_weight
 
@@ -76,7 +89,23 @@ def run():
         #     reconstruct_weight(model_storage, model, 1, model_constitution)
         #     save_model(model, model_info["model_path"] + "-pruned")
 
-    n_models = len(models_info) - 1
+    lis_index = longest_increasing_subsequence(accs)
+    # Accuracies
+    lis_acc = [round(accs[i], 4) for i in lis_index]
+    acc_drops = [
+        model_info["original_acc"] - acc for acc, model_info in zip(accs, models_info)
+    ]
+    max_acc_drop = max([acc_drops[i] for i in lis_index])
+    # Total new blocks
+    total_new_blocks = sum([n_new_blockss[i] for i in lis_index])
+    # Number of models
+    n_models = len(lis_index)
+    # Blocks from base model
+    blockss_from_base = [blockss_from_base[i] for i in lis_index]
+    blockss_from_base = set.union(*blockss_from_base)
+    # Compression ratios
+    crs = [crs[i] for i in lis_index]
+
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
@@ -84,7 +113,12 @@ def run():
         model_args.n_original_weights,
         n_models,
     )
-    print(f"{total_new_blocks=} | {cr=} | {max_acc_drop=}")
+    print(f"{n_models=} | {total_new_blocks=} | {cr=} | {max_acc_drop=}")
+    print(f"Longest increasing subsequence indices: {lis_index}")
+    print(f"Compression ratios: {crs}")
+    print(f"Accuracies: {lis_acc}")
+    print(f"Number of evaluations: {n_evalss}")
+    print(f"Number of fails: {n_failss}")
     print(f"All blocks from base: {blockss_from_base}")
     print(f"Number of blocks from base: {len(blockss_from_base)}")
     print(f"Total sensitivity compute time: {total_sens_compute_time}   ")
@@ -178,6 +212,7 @@ def deduplicate_blocks(
     interate_seq = interate_seq.tolist()
     right_seq = []
     dedup_indices = set()
+
     model_constitution, remain_fails = recursive_deduplicate(
         model_args,
         data_args,
@@ -269,7 +304,7 @@ def recursive_deduplicate(
 ):
     # Base case
     if len(interate_seq) < training_args.min_dedup_len or remain_fails == 0:
-        return model_constitution, remain_fails
+        return model_constitution, remain_fails, 0
 
     mid_point = len(interate_seq) // 2
     left_seq = interate_seq[:mid_point]
@@ -319,15 +354,22 @@ def recursive_deduplicate(
         model_storage,
         1,
     )
-    scale = 4 / (data_args.val_size * training_args.val_epsilon)
-    if not hasattr(data_args, "noise"):
+    global n_evals
+    n_evals += 1
+
+    if not hasattr(data_args, "noise") and training_args.val_epsilon > 0:
+        scale = 2 / (data_args.val_size * training_args.val_epsilon1)
         data_args.noise = np.random.laplace(loc=0, scale=scale)
         print(f"Noise to threshold: {data_args.noise}")
         acc_threshold += data_args.noise
-    scale *= 2 * training_args.max_fails
+
+    scale = (
+        4 * training_args.max_fails / (data_args.val_size * training_args.val_epsilon2)
+    )
     noise = np.random.laplace(loc=0, scale=scale)
     print(f"Noise to acc: {noise}")
     acc += noise
+
     success = False
     if acc > acc_threshold:
         dedup_indices |= tobe_dedup_indices

@@ -13,7 +13,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 
 from utils.parse_args import parse_args
-from utils import load_models_info
+from utils.common import load_models_info
 
 
 @dataclass
@@ -114,30 +114,13 @@ def text_task_evaluate():
 
     model_args, data_args, training_args = parse_args()
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
-    models_info = load_models_info(model_args.task_type)
-    # model_paths = [info["model_path"] for info in models_info]
-    # models_storage = get_blocks(model_paths=model_paths)
-
-    data_args.task_name = models_info[0]["task_name"]
-    model_args.model_name_or_path = models_info[0]["model_path"]
-    # model0_range_end = models_storage["model_range"][1]
-    # model0 = list(range(0, model0_range_end))
-    acc = evaluate(data_args, model_args, training_args, models_info[0])
-    print(f"Accuracy: {acc}")
-
-    data_args.task_name = models_info[1]["task_name"]
-    model_args.model_name_or_path = models_info[1]["model_path"]
-    # model1_range_end = models_storage["model_range"][2]
-    # model1 = list(range(model0_range_end, model1_range_end))
-    acc = evaluate(
-        None,
-        1,
-        None,
-        data_args,
-        model_args,
-        training_args,
-    )
-    print(f"Accuracy: {acc}")
+    models_info = load_models_info(model_args)
+    data_args.task_name = "qnli"
+    for model_info in models_info:
+        print(f"Model: {model_info['model_path']}")
+        model_args.model_name_or_path = model_info["model_path"]
+        acc = evaluate(data_args, model_args, training_args, model_info)
+        print(f"Accuracy: {acc}")
 
 
 def vision_task_parameters():
@@ -188,8 +171,8 @@ if __name__ == "__main__":
     # visualize_dedupicable_sequence("baseline3_l2norm.out")
 
     # plot_constitution_heatmap()
-    # text_task_evaluate()
+    text_task_evaluate()
 
     # vision_task_evaluation()
 
-    vision_task_parameters()
+    # vision_task_parameters()

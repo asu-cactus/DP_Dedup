@@ -336,9 +336,9 @@ class DynamicTrainingArguments(TrainingArguments):
     )
 
     # SVT arguments
-    # val_epsilon: Optional[float] = field(
-    #     default=0.5, metadata={"help": "Epsilon for SVT"}
-    # )
+    val_epsilon: Optional[float] = field(
+        default=0, metadata={"help": "Epsilon for SVT"}
+    )
     max_fails: Optional[int] = field(
         default=4, metadata={"help": "Maximum number of fails for SVT"}
     )
@@ -464,7 +464,7 @@ def parse_args():
     if model_args.task_type == "text":
         data_args.task_name = "qnli"
         model_args.block_size = 589824
-        training_args.val_epsilon = 1.0
+        # training_args.val_epsilon = 1.0
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":
@@ -478,7 +478,7 @@ def parse_args():
         training_args.bs = 500
         training_args.mini_bs = 50
         model_args.block_size = 1048576 if not model_args.heter else 262144
-        training_args.val_epsilon = 0.5
+        # training_args.val_epsilon = 0.5
         # model_args.untouched_weights = 1414244
         # model_args.n_original_weights = 303404132
     elif model_args.task_type == "vision_resnet":
@@ -487,7 +487,7 @@ def parse_args():
         training_args.bs = 500
         training_args.mini_bs = 50
         model_args.block_size = 262144
-        training_args.val_epsilon = 0.3
+        # training_args.val_epsilon = 0.3
         # model_args.untouched_weights = 2913384
         # model_args.n_original_weights = 58225768
     elif model_args.task_type == "recommendation":
@@ -496,6 +496,9 @@ def parse_args():
         model_args.block_size = 1180000
         # model_args.untouched_weights = 30005
         # model_args.n_original_weights = 236210005
+    eps_ratio = (2 * training_args.max_fails) ** (2 / 3)
+    training_args.val_epsilon1 = training_args.val_epsilon / (1 + eps_ratio)
+    training_args.val_epsilon2 = training_args.val_epsilon1 * eps_ratio
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

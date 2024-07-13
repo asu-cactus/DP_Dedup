@@ -29,7 +29,7 @@ def run():
 
     total_sens_compute_time = 0
     # Deduplicate blocks for each model
-    blockss_from_base = []
+    blockss_from_base = [set()]
     accs = [models_info[0]["original_acc"]]
     n_new_blockss = [n_base_blocks]
     n_evalss, n_failss, crs = [0], [0], [1.0]

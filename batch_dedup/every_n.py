@@ -23,7 +23,7 @@ def run():
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     n_base_blocks = base_model_storage["blocks"].shape[0]
 
-    blockss_from_base = []
+    blockss_from_base = [set()]
     accs = [models_info[0]["original_acc"]]
     n_new_blockss = [n_base_blocks]
     n_evalss, n_failss, crs = [0], [0], [1.0]

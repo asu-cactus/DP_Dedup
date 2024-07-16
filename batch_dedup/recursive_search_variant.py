@@ -355,18 +355,21 @@ def recursive_deduplicate(
     global n_evals
     n_evals += 1
 
-    if not hasattr(data_args, "noise") and training_args.val_epsilon > 0:
-        scale = 2 / (data_args.val_size * training_args.val_epsilon1)
-        data_args.noise = np.random.laplace(loc=0, scale=scale)
-        print(f"Noise to threshold: {data_args.noise}")
-        acc_threshold += data_args.noise
+    if training_args.val_epsilon > 0:
+        if not hasattr(data_args, "noise"):
+            scale = 2 / (data_args.val_size * training_args.val_epsilon1)
+            data_args.noise = np.random.laplace(loc=0, scale=scale)
+            print(f"Noise to threshold: {data_args.noise}")
+            acc_threshold += data_args.noise
 
-    scale = (
-        4 * training_args.max_fails / (data_args.val_size * training_args.val_epsilon2)
-    )
-    noise = np.random.laplace(loc=0, scale=scale)
-    print(f"Noise to acc: {noise}")
-    acc += noise
+        scale = (
+            4
+            * training_args.max_fails
+            / (data_args.val_size * training_args.val_epsilon2)
+        )
+        noise = np.random.laplace(loc=0, scale=scale)
+        print(f"Noise to acc: {noise}")
+        acc += noise
 
     success = False
     if acc > acc_threshold:

@@ -1,4 +1,36 @@
 {
+    "-4": {
+        "model_path": "../models/large_CIFAR100_eps0.3.pt",
+        "task_name": "CIFAR100",
+        "acc_drop_threshold": 0,
+        "original_acc": 0.6908,
+        "budget": 0.3,
+        "allowed_budget": 0.3
+    },
+    "-3": {
+        "model_path": "../models/large_CIFAR100_eps0.35.pt",
+        "task_name": "CIFAR100",
+        "acc_drop_threshold": 0,
+        "original_acc": 0.7403,
+        "budget": 0.35,
+        "allowed_budget": 0.35
+    },
+    "-2": {
+        "model_path": "../models/large_CIFAR100_eps0.4.pt",
+        "task_name": "CIFAR100",
+        "acc_drop_threshold": 0,
+        "original_acc": 0.7739,
+        "budget": 0.4,
+        "allowed_budget": 0.4
+    },
+    "-1": {
+        "model_path": "../models/large_CIFAR100_eps0.45.pt",
+        "task_name": "CIFAR100",
+        "acc_drop_threshold": 0,
+        "original_acc": 0.7953,
+        "budget": 0.45,
+        "allowed_budget": 0.45
+    },
     "0": {
         "model_path": "../models/large_CIFAR100_eps0.5.pt",
         "task_name": "CIFAR100",

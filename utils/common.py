@@ -19,6 +19,8 @@ def load_models_info(model_args) -> list[dict]:
             model_info_path = "models/vision_vit_heter.json"
         elif model_args.big_batch:
             model_info_path = "models/vision_vit_20models.json"
+        elif model_args.dummy_base_model >= 0:
+            model_info_path = "models/vision_vit_dummy.json"
         elif model_args.inter_data_mode == "cifar100_celeba":
             model_info_path = "models/vision_vit_cifar100_celeba.json"
         elif model_args.inter_data_mode == "celeba_cifar100":
@@ -43,6 +45,9 @@ def load_models_info(model_args) -> list[dict]:
     with open(model_info_path, "r") as f:
         models_info = json.load(f)
     models_info = list(models_info.values())
+    if model_args.dummy_base_model >= 0:
+        model_ids = [model_args.dummy_base_model, 4, 5, 6, 7, 8]
+        models_info = [models_info[i] for i in model_ids]
     for info in models_info:
         print(info)
     return models_info

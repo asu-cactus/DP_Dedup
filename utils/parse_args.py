@@ -35,6 +35,12 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether to use a big batch of 20, otherwise 5 models"},
     )
+    dummy_base_model: int = field(
+        default=-1,
+        metadata={
+            "help": "Index of the dummy base model, -1 meaning not using dummy base model"
+        },
+    )
     inter_data_mode: str = field(
         default="None",
         metadata={

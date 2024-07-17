@@ -86,6 +86,13 @@ def run():
         #         from text_task_utils.save_model import save_model
         #     reconstruct_weight(model_storage, model, 1, model_constitution)
         #     save_model(model, model_info["model_path"] + "-pruned")
+    if model_args.dummy_base_model >= 0:
+        accs = accs[1:]
+        blockss_from_base = blockss_from_base[1:]
+        n_new_blockss = n_new_blockss[1:]
+        n_evalss = n_evalss[1:]
+        n_failss = n_failss[1:]
+        crs = crs[1:]
 
     lis_index = longest_increasing_subsequence(accs)
     # Accuracies
@@ -101,6 +108,8 @@ def run():
     # Blocks from base model
     blockss_from_base = [blockss_from_base[i] for i in lis_index]
     blockss_from_base = set.union(*blockss_from_base)
+    if model_args.dummy_base_model >= 0:
+        total_new_blocks += len(blockss_from_base)
     # Compression ratios
     crs = [crs[i] for i in lis_index]
 

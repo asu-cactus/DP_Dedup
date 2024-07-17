@@ -173,6 +173,14 @@ def run():
         save_path = f"../models/{model_args.task_type}_{n_models}models_storage.npz"
         np.savez(save_path, **total_model_storage)
 
+    if model_args.dummy_base_model >= 0:
+        accs = accs[1:]
+        blockss_from_base = blockss_from_base[1:]
+        n_new_blockss = n_new_blockss[1:]
+        n_evalss = n_evalss[1:]
+        n_failss = n_failss[1:]
+        crs = crs[1:]
+
     lis_index = longest_increasing_subsequence(accs)
     # Accuracies
     lis_acc = [round(accs[i], 4) for i in lis_index]
@@ -187,6 +195,8 @@ def run():
     # Blocks from base model
     blockss_from_base = [blockss_from_base[i] for i in lis_index]
     blockss_from_base = set.union(*blockss_from_base)
+    if model_args.dummy_base_model >= 0:
+        total_new_blocks += len(blockss_from_base)
     # Compression ratios
     crs = [crs[i] for i in lis_index]
 

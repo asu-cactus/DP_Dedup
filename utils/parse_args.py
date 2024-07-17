@@ -499,11 +499,7 @@ def parse_args():
         model_args.block_size = 1180000
         # model_args.untouched_weights = 30005
         # model_args.n_original_weights = 236210005
-        
-    eps_ratio = (2 * training_args.max_fails) ** (2 / 3)
-    training_args.val_epsilon1 = training_args.val_epsilon / (1 + eps_ratio)
-    training_args.val_epsilon2 = training_args.val_epsilon1 * eps_ratio
-    
+
     print(f"model_args:\n{model_args}")
     print(f"data_args:\n{data_args}")
     print(f"training_args:\n{training_args}")

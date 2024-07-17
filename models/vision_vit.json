@@ -3,7 +3,7 @@
         "model_path": "../models/large_CIFAR100_eps0.5.pt",
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.02,
-        "original_acc": 0.810,
+        "original_acc": 0.8101,
         "budget": 0.5,
         "allowed_budget": 0.5
     },

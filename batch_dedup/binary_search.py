@@ -14,6 +14,7 @@ from utils.common import (
     save_model_storage,
     collect_storage,
     longest_increasing_subsequence,
+    set_val_epsilon,
 )
 from utils.quantization import quant_and_dequant_model
 from utils.pruning import prune_model, sparsify_model_storage
@@ -56,6 +57,7 @@ def run():
     acc = models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
+        set_val_epsilon(training_args, model_info["budget"], models_info[0]["budget"])
         model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
         set_model_args(model_args, model, curr_model_storage)
@@ -443,7 +445,7 @@ def recursive_deduplicate(
     global n_evals
     n_evals += 1
 
-    if training_args.val_epsilon > 0:
+    if training_args.extra_val_eps >= 0:
         if not hasattr(data_args, "noise"):
             scale = 2 / (data_args.val_size * training_args.val_epsilon1)
             data_args.noise = np.random.laplace(loc=0, scale=scale)

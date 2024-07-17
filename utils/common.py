@@ -247,3 +247,11 @@ def longest_increasing_subsequence(arr):
 
     # return lis_index, lis_sequence
     return lis_index
+
+
+def set_val_epsilon(training_args, curr_budget, base_budget):
+    if training_args.extra_val_eps >= 0:
+        eps_ratio = (2 * training_args.max_fails) ** (2 / 3)
+        val_eps = curr_budget + base_budget + training_args.extra_val_eps
+        training_args.val_epsilon1 = val_eps / (1 + eps_ratio)
+        training_args.val_epsilon2 = training_args.val_epsilon1 * eps_ratio

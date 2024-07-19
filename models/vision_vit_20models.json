@@ -44,7 +44,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8558,
-        "budget": 0.6,
+        "budget": 0.75,
         "allowed_budget": 1.1
     },
     "6": {
@@ -52,7 +52,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8604,
-        "budget": 0.75,
+        "budget": 0.8,
         "allowed_budget": 1.25
     },
     "7": {
@@ -60,7 +60,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8652,
-        "budget": 1.0,
+        "budget": 0.85,
         "allowed_budget": 1.5
     },
     "8": {
@@ -68,7 +68,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8674,
-        "budget": 2.0,
+        "budget": 0.9,
         "allowed_budget": 2.5
     },
     "9": {
@@ -76,7 +76,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8708,
-        "budget": 0.6,
+        "budget": 0.95,
         "allowed_budget": 1.1
     },
     "10": {
@@ -84,7 +84,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8757,
-        "budget": 0.75,
+        "budget": 1.0,
         "allowed_budget": 1.25
     },
     "11": {
@@ -92,7 +92,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8900,
-        "budget": 1.0,
+        "budget": 1.5,
         "allowed_budget": 1.5
     },
     "12": {
@@ -108,7 +108,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8996,
-        "budget": 0.6,
+        "budget": 2.5,
         "allowed_budget": 1.1
     },
     "14": {
@@ -116,7 +116,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9010,
-        "budget": 0.75,
+        "budget": 3.0,
         "allowed_budget": 1.25
     },
     "15": {
@@ -124,7 +124,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9020,
-        "budget": 1.0,
+        "budget": 3.5,
         "allowed_budget": 1.5
     },
     "16": {
@@ -132,7 +132,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9027,
-        "budget": 2.0,
+        "budget": 4.0,
         "allowed_budget": 2.5
     },
     "17": {
@@ -140,7 +140,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9040,
-        "budget": 0.6,
+        "budget": 4.5,
         "allowed_budget": 1.1
     },
     "18": {
@@ -148,7 +148,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9053,
-        "budget": 0.75,
+        "budget": 5.5,
         "allowed_budget": 1.25
     },
     "19": {
@@ -156,7 +156,7 @@
         "task_name": "CIFAR100",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.9061,
-        "budget": 1.0,
+        "budget": 6.0,
         "allowed_budget": 1.5
     }
 }

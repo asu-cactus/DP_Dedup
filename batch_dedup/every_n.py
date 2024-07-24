@@ -99,7 +99,7 @@ def run():
     if model_args.dummy_base_model >= 0:
         total_new_blocks += len(blockss_from_base)
     # Compression ratios
-    crs = [crs[i] for i in lis_index]
+    crs = [round(crs[i], 4) for i in lis_index]
 
     cr = compute_compression_ratio(
         total_new_blocks,

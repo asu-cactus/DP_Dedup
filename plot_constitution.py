@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-
+os.environ["WANDB_DISABLED"] = "true"
 import pdb
 from pathlib import Path
 import re

@@ -13,7 +13,12 @@ def load_models_info(model_args) -> list[dict]:
     If model_ids is not specified, load all models. Otherwise, load the specified models.
     """
     if model_args.task_type == "text":
-        model_info_path = "models/text.json"
+        if model_args.dummy_base_model >= 0:
+            model_info_path = "models/text_dummy.json"
+        elif model_args.big_batch:
+            model_info_path = "models/text_10models.json"
+        else:
+            model_info_path = "models/text.json"
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
@@ -29,12 +34,17 @@ def load_models_info(model_args) -> list[dict]:
             model_info_path = "models/vision_vit.json"
 
     elif model_args.task_type == "vision_resnet":
+
         if model_args.prune:
             model_info_path = "models/vision_resnet_pruned.json"
         elif model_args.quantize:
             model_info_path = "models/vision_resnet_quantized.json"
         elif model_args.heter:
             model_info_path = "models/vision_resnet_heter.json"
+        elif model_args.big_batch:
+            model_info_path = "models/vision_resnet_10models.json"
+        elif model_args.dummy_base_model >= 0:
+            model_info_path = "models/vision_resnet_dummy.json"
         else:
             model_info_path = "models/vision_resnet.json"
     elif model_args.task_type == "recommendation":

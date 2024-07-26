@@ -17,6 +17,10 @@ def load_models_info(model_args) -> list[dict]:
             model_info_path = "models/text_dummy.json"
         elif model_args.big_batch:
             model_info_path = "models/text_10models.json"
+        elif model_args.inter_data_mode == "qnli_sst2":
+            model_info_path = "models/text_qnli_sst2.json"
+        elif model_args.inter_data_mode == "sst2_qnli":
+            model_info_path = "models/text_sst2_qnli.json"
         else:
             model_info_path = "models/text.json"
     elif model_args.task_type == "vision_vit":

@@ -1,12 +1,4 @@
 {
-    "-4": {
-        "model_path": "../models/in1k_CelebA_eps0.2.pt",
-        "task_name": "CelebA",
-        "acc_drop_threshold": 0.02,
-        "original_acc": 0.7992,
-        "budget": 0.2,
-        "allowed_budget": 0.2
-    },
     "-3": {
         "model_path": "../models/in1k_CelebA_eps0.3.pt",
         "task_name": "CelebA",
@@ -70,5 +62,13 @@
         "original_acc": 0.8310,
         "budget": 1.0,
         "allowed_budget": 1.4
+    },
+    "5": {
+        "model_path": "../models/in1k_CelebA_eps2.0.pt",
+        "task_name": "CelebA",
+        "acc_drop_threshold": 0.020,
+        "original_acc": 0.8368,
+        "budget": 2.0,
+        "allowed_budget": 2.4
     }
 }

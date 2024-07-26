@@ -144,7 +144,7 @@
         "allowed_budget": 2.1
     },
     "18": {
-        "model_path": "../models/in1k_CelebA_ep2.0.pt",
+        "model_path": "../models/in1k_CelebA_eps2.0.pt",
         "task_name": "CelebA",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8368,
@@ -152,7 +152,7 @@
         "allowed_budget": 2.2
     },
     "19": {
-        "model_path": "../models/in1k_CelebA_ep2.1.pt",
+        "model_path": "../models/in1k_CelebA_eps2.1.pt",
         "task_name": "CelebA",
         "acc_drop_threshold": 0.020,
         "original_acc": 0.8351,

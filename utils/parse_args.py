@@ -44,7 +44,7 @@ class ModelArguments:
     inter_data_mode: str = field(
         default="None",
         metadata={
-            "help": "Inter-data mode. Choice: None, cifar100_celeba, celeba_cifar100"
+            "help": "Inter-data mode. Choice: None, cifar100_celeba, celeba_cifar100, qnli_sst2, sst2_qnli"
         },
     )
     save_combined_storage: bool = field(
@@ -468,7 +468,9 @@ def parse_args():
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     if model_args.task_type == "text":
-        data_args.task_name = "qnli"
+        data_args.task_name = (
+            "qnli" if not model_args.inter_data_mode == "qnli_sst2" else "sst-2"
+        )
         model_args.block_size = 589824
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953

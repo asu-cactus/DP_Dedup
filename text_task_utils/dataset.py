@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import json
 import logging
 import os
-import time
 from typing import List, Optional, Union
 
 from filelock import FileLock
@@ -385,6 +384,7 @@ class FewShotDataset(torch.utils.data.Dataset):
         lock_path = cached_features_file + ".lock"
         with FileLock(lock_path):
             if os.path.exists(cached_features_file) and not args.overwrite_cache:
+
                 # start = time.time()
                 self.support_examples, self.query_examples = torch.load(
                     cached_features_file
@@ -393,6 +393,9 @@ class FewShotDataset(torch.utils.data.Dataset):
                 #     f"Loading features from cached file {cached_features_file} [took %.3f s]",
                 #     time.time() - start,
                 # )
+                if hasattr(args, "load_from"):
+                    self.support_examples = self.support_examples[:20]
+                    self.query_examples = self.query_examples[:5]
             else:
                 # logger.info(f"Creating features from dataset file at {args.data_dir}")
 

@@ -385,7 +385,7 @@ class FewShotDataset(torch.utils.data.Dataset):
         lock_path = cached_features_file + ".lock"
         with FileLock(lock_path):
             if os.path.exists(cached_features_file) and not args.overwrite_cache:
-                start = time.time()
+                # start = time.time()
                 self.support_examples, self.query_examples = torch.load(
                     cached_features_file
                 )
@@ -408,7 +408,7 @@ class FewShotDataset(torch.utils.data.Dataset):
                 else:
                     self.query_examples = self.support_examples
 
-                start = time.time()
+                # start = time.time()
                 torch.save(
                     [self.support_examples, self.query_examples], cached_features_file
                 )
@@ -517,18 +517,26 @@ class FewShotDataset(torch.utils.data.Dataset):
                         for support_idx, score in sim_score:
                             if (
                                 count_each_label[
-                                    "0"
-                                    if float(self.support_examples[support_idx].label)
-                                    <= median_mapping[args.task_name]
-                                    else "1"
+                                    (
+                                        "0"
+                                        if float(
+                                            self.support_examples[support_idx].label
+                                        )
+                                        <= median_mapping[args.task_name]
+                                        else "1"
+                                    )
                                 ]
                                 < limit_each_label
                             ):
                                 count_each_label[
-                                    "0"
-                                    if float(self.support_examples[support_idx].label)
-                                    <= median_mapping[args.task_name]
-                                    else "1"
+                                    (
+                                        "0"
+                                        if float(
+                                            self.support_examples[support_idx].label
+                                        )
+                                        <= median_mapping[args.task_name]
+                                        else "1"
+                                    )
                                 ] += 1
                                 context_indices.append(support_idx)
                                 if args.debug_mode:
@@ -847,11 +855,13 @@ class FewShotDataset(torch.utils.data.Dataset):
                 other_sent_limit=self.args.other_sent_limit,
                 truncate_head=self.args.truncate_head,
                 gpt3=self.args.gpt3_in_context_head or self.args.gpt3_in_context_tail,
-                support_labels=None
-                if not (
-                    self.args.gpt3_in_context_head or self.args.gpt3_in_context_tail
-                )
-                else support_labels,
+                support_labels=(
+                    None
+                    if not (
+                        self.args.gpt3_in_context_head or self.args.gpt3_in_context_tail
+                    )
+                    else support_labels
+                ),
             )
             features = OurInputFeatures(**inputs, label=example_label)
 

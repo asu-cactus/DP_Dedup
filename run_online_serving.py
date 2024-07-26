@@ -5,7 +5,6 @@ import numpy as np
 from transformers import default_data_collator
 
 import math
-from random import choice
 import json
 import argparse
 from time import time
@@ -135,10 +134,6 @@ def inference(args, model_ids):
                 break
             inference_start = time()
             if args.dataset_name == "qnli":
-                # pdb.set_trace()
-                # input_ids = torch.tensor(item.input_ids, dtype=torch.long)
-                # attention_mask = torch.tensor(item.attention_mask, dtype=torch.long)
-                # mask_pos = torch.tensor(item.mask_pos, dtype=torch.long)
                 item.pop("labels")
                 with torch.no_grad():
                     model(**item)
@@ -217,6 +212,12 @@ if __name__ == "__main__":
         default=1,
         help="Number of workers for dataloader",
     )
+    parser.add_argument(
+        "--data_root_dir",
+        type=str,
+        default="../fast-differential-privacy/examples/text_classification/data/original/",
+        help="Root directory of the dataset",
+    )
     # parser.add_argument(
     #     "--gpu",
     #     action="store_true",
@@ -238,9 +239,6 @@ if __name__ == "__main__":
         args.few_shot_type = "prompt-demo"
         args.prompt = False
         args.template_path = None
-        args.data_root_dir = (
-            "../fast-differential-privacy/examples/text_classification/data/original/"
-        )
         args.prompt_path = None
         args.mapping_path = None
         args.auto_demo = True

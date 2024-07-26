@@ -12,6 +12,10 @@ import pdb
 
 from vision_task_utils.dataset import load_vision_dataset
 from text_task_utils.evaluate import evaluate
+from text_task_utils.models import (
+    RobertaForPromptFinetuning,
+    resize_token_type_embeddings,
+)
 
 torch.manual_seed(42)
 
@@ -45,16 +49,28 @@ def load_model_storage(args):
     return model_storage
 
 
-def load_model_and_testset(args, model_info=None):
-    if args.dataset_name in ["CIFAR100", "CelebA"]:
-        model = timm.create_model(args.model_name, num_classes=args.num_classes)
-        model.to("cpu")
-        model = ModuleValidator.fix(model)
-        testset = load_vision_dataset(args)
-    else:
-        args.model_name_or_path = model_info["model_path"]
-        model, testset, _ = evaluate(args, args, args, return_verbose=True)
-    return model, testset
+def load_text_testset(args, model_info):
+    args.model_name_or_path = model_info["model_path"]
+    testset, config = evaluate(args, args, args, return_dataset=True)
+    return testset, config
+
+
+def load_text_model(args, testset, config):
+    model = RobertaForPromptFinetuning.from_pretrained(
+        args.model_name_or_path,
+        from_tf=False,
+        config=config,
+        cache_dir=args.cache_dir,
+    )
+    model.label_word_list = torch.tensor(testset.label_word_list).long().cuda()
+    return model
+
+
+def load_vision_model(args):
+    model = timm.create_model(args.model_name, num_classes=args.num_classes)
+    model.to("cpu")
+    model = ModuleValidator.fix(model)
+    return model
 
 
 def reconstruct_weight(model, blocks, model_constitution, untouched_weights):
@@ -87,7 +103,21 @@ def inference(args, model_ids):
 
     # Load model from disk
     models_info = load_models_info(args)
-    model, testset = load_model_and_testset(args, models_info[0])
+    if args.dataset_name == "qnli":
+        testset, config = load_text_testset(args, models_info[0])
+        model = load_text_model(args, testset, config)
+    else:
+        model = load_vision_model(args)
+        testset = load_vision_dataset(args)
+
+    collate_fn = default_data_collator if args.dataset_name == "qnli" else None
+    testloader = torch.utils.data.DataLoader(
+        testset,
+        batch_size=args.mini_bs,
+        shuffle=True,
+        num_workers=args.num_workers,
+        collate_fn=collate_fn,
+    )
 
     model.eval()
     for param in model.parameters():
@@ -102,17 +132,14 @@ def inference(args, model_ids):
 
     for model_id in model_ids:
         if args.load_from == "disk":
-            if args.dataset_name in ["CIFAR100", "CelebA"]:
-                model_loading_start = time()
+            model_loading_start = time()
+            if args.dataset_name == "qnli":
+                args.model_name_or_path = models_info[model_id]["model_path"]
+                model = load_text_model(args, testset, config)
+            else:
                 model_path = models_info[model_id]["model_path"]
                 model.load_state_dict(torch.load(model_path, map_location="cpu"))
-                load_or_construct_time += time() - model_loading_start
-            else:
-                args.model_name_or_path = models_info[model_id]["model_path"]
-                model, testset, loading_time = evaluate(
-                    args, args, args, return_verbose=True
-                )
-                load_or_construct_time += loading_time
+            load_or_construct_time += time() - model_loading_start
         else:
             model_construct_start = time()
             reconstruct_weight(
@@ -121,14 +148,6 @@ def inference(args, model_ids):
             load_or_construct_time += time() - model_construct_start
         # model.to(device)
 
-        collate_fn = default_data_collator if args.dataset_name == "qnli" else None
-        testloader = torch.utils.data.DataLoader(
-            testset,
-            batch_size=args.mini_bs,
-            shuffle=True,
-            num_workers=args.num_workers,
-            collate_fn=collate_fn,
-        )
         for i, item in enumerate(testloader):
             if i == n_iter:
                 break

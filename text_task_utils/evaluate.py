@@ -54,7 +54,7 @@ def evaluate(
     model_storage=None,
     model_id=None,
     blocks=None,
-    return_verbose=False,
+    return_dataset=False,
 ):
     # Add some additional arguments to make it work
     task_name = data_args.task_name
@@ -324,8 +324,9 @@ def evaluate(
     print(f"\n*** eval dataset sizes: {len(eval_dataset)}")
     data_args.val_size = len(eval_dataset)
 
-    if return_verbose:
-        model_loading_start = time()
+    if return_dataset:
+        return eval_dataset, config
+
     model = model_fn.from_pretrained(
         model_args.model_name_or_path,
         from_tf=False,
@@ -340,8 +341,6 @@ def evaluate(
         resize_token_type_embeddings(
             model, new_num_types=10, random_segment=model_args.random_segment
         )
-    if return_verbose:
-        model_loading_time = time() - model_loading_start
 
     # Pass dataset and argument information to the model
     if data_args.prompt:
@@ -358,8 +357,6 @@ def evaluate(
     model.data_args = data_args
     model.tokenizer = tokenizer
 
-    if return_verbose:
-        return model, eval_dataset, model_loading_time
     # Reconstruct the parameters using the model constitution
     if model_constitution:
         if blocks is None:

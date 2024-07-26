@@ -62,7 +62,7 @@ def load_text_model(args, testset, config):
         config=config,
         cache_dir=args.cache_dir,
     )
-    model.label_word_list = torch.tensor(testset.label_word_list).long().cuda()
+    model.label_word_list = torch.tensor(testset.label_word_list).long()
     return model
 
 

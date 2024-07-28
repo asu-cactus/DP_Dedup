@@ -185,7 +185,10 @@ def run():
         n_failss = n_failss[1:]
         crs = crs[1:]
 
-    lis_index = longest_increasing_subsequence(accs)
+    if training_args.enforce_fairness:
+        lis_index = longest_increasing_subsequence(accs)
+    else:
+        lis_index = [i for i in range(len(accs))]
     # Accuracies
     lis_acc = [round(accs[i], 4) for i in lis_index]
     acc_drops = [

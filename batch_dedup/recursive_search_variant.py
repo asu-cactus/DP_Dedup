@@ -44,9 +44,11 @@ def run():
         set_model_args(model_args, model, curr_model_storage)
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
         # The following line guarantees the fairness rule
-        model_info["acc_threshold"] = max(
-            model_info["original_acc"] - model_info["acc_drop_threshold"], acc
-        )
+        set_acc = model_info["original_acc"] - model_info["acc_drop_threshold"]
+        if training_args.enforce_fairness:
+            model_info["acc_threshold"] = max(set_acc, acc)
+        else:
+            model_info["acc_threshold"] = set_acc
         model_constitution, sens_compute_time, acc, n_fails = deduplicate_blocks(
             model_args,
             data_args,

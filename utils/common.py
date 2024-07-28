@@ -12,7 +12,7 @@ def load_models_info(model_args) -> list[dict]:
     Load model information from model_info.json.
     If model_ids is not specified, load all models. Otherwise, load the specified models.
     """
-    if model_args.task_type == "text":
+    if model_args.task_type == "text_qnli":
         if model_args.dummy_base_model >= 0:
             model_info_path = "models/text_dummy.json"
         elif model_args.big_batch:
@@ -22,7 +22,11 @@ def load_models_info(model_args) -> list[dict]:
         elif model_args.inter_data_mode == "sst2_qnli":
             model_info_path = "models/text_sst2_qnli.json"
         else:
-            model_info_path = "models/text.json"
+            model_info_path = "models/text_qnli.json"
+    elif model_args.task_type == "text_mnli":
+        model_info_path = "models/text_mnli.json"
+    elif model_args.task_type == "text_mnli_sst2":
+        model_info_path = "models/text_mnli_sst2.json"
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
@@ -38,7 +42,6 @@ def load_models_info(model_args) -> list[dict]:
             model_info_path = "models/vision_vit.json"
 
     elif model_args.task_type == "vision_resnet":
-
         if model_args.prune:
             model_info_path = "models/vision_resnet_pruned.json"
         elif model_args.quantize:
@@ -176,7 +179,7 @@ def print_params(model):
 
 
 def load_model(model_info, model_args):
-    if model_args.task_type == "text":
+    if model_args.task_type.startswith("text"):
         from text_task_utils.models import RobertaForPromptFinetuning
         from text_task_utils.evaluate import evaluate as eval_fn
         from text_task_utils.train import train as train_fn
@@ -184,7 +187,7 @@ def load_model(model_info, model_args):
 
         model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])
 
-    elif "vision" in model_args.task_type:
+    elif model_args.task_type.startswith("vision"):
         if model_info["task_name"] == "CIFAR100":
             num_classes = 100
         elif model_info["task_name"] == "CelebA":

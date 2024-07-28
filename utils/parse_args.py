@@ -341,6 +341,12 @@ class DynamicTrainingArguments(TrainingArguments):
         },
     )
 
+    # For fairnes
+    enforce_fairness: bool = field(
+        default=True,
+        metadata={"help": "Enforce fairness during deduplication"},
+    )
+
     # SVT arguments
     extra_val_eps: Optional[float] = field(
         default=-1, metadata={"help": "Epsilon for SVT"}
@@ -467,13 +473,19 @@ def parse_args():
         )
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    if model_args.task_type == "text":
+    if model_args.task_type == "text_qnli":
         data_args.task_name = (
             "qnli" if not model_args.inter_data_mode == "qnli_sst2" else "sst-2"
         )
         model_args.block_size = 589824
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953
+    elif model_args.task_type == "text_mnli":
+        data_args.task_name = "mnli"
+        model_args.block_size = 589824
+    elif model_args.task_type == "text_mnli_sst2":
+        data_args.task_name = "sst-2"
+        model_args.block_size = 589824
     elif model_args.task_type == "vision_vit":
         model_args.model = "vit_large_patch16_224"
         data_args.dataset_name = (

@@ -399,4 +399,6 @@ def evaluate(
         compute_metrics=build_compute_metrics_fn(data_args.task_name),
     )
     metrics = trainer.evaluate(eval_dataset=eval_dataset)
+    if data_args.task_name == "mnli":
+        return metrics["eval_mnli/acc"]
     return metrics["eval_acc"]

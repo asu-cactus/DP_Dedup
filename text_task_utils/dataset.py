@@ -256,8 +256,23 @@ def tokenize_multipart_input(
         attention_mask.extend([0] * (max_length - len_input_ids))
         token_type_ids.extend([0] * (max_length - len_input_ids))
 
+    # Find mask token
+    continue_truncate = True
+    if prompt:
+        mask_pos = [input_ids.index(tokenizer.mask_token_id)]
+        # Make sure that the masked position is inside the max_length
+        if mask_pos[0] >= max_length:
+            continue_truncate = False
+            added_length = 20
+            if truncate_head:
+                raise NotImplementedError
+            input_ids = input_ids[added_length : max_length + added_length]
+            attention_mask = attention_mask[added_length : max_length + added_length]
+            token_type_ids = token_type_ids[added_length : max_length + added_length]
+            mask_pos = [mask_pos[0] - added_length]
+
     # Truncate
-    if len(input_ids) > max_length:
+    if continue_truncate and len(input_ids) > max_length:
         if truncate_head:
             input_ids = input_ids[-max_length:]
             attention_mask = attention_mask[-max_length:]
@@ -267,12 +282,6 @@ def tokenize_multipart_input(
             input_ids = input_ids[:max_length]
             attention_mask = attention_mask[:max_length]
             token_type_ids = token_type_ids[:max_length]
-
-    # Find mask token
-    if prompt:
-        mask_pos = [input_ids.index(tokenizer.mask_token_id)]
-        # Make sure that the masked position is inside the max_length
-        assert mask_pos[0] < max_length
 
     result = {"input_ids": input_ids, "attention_mask": attention_mask}
     if "BERT" in type(tokenizer).__name__:
@@ -393,9 +402,6 @@ class FewShotDataset(torch.utils.data.Dataset):
                 #     f"Loading features from cached file {cached_features_file} [took %.3f s]",
                 #     time.time() - start,
                 # )
-                if hasattr(args, "load_from"):
-                    self.support_examples = self.support_examples[:20]
-                    self.query_examples = self.query_examples[:5]
             else:
                 # logger.info(f"Creating features from dataset file at {args.data_dir}")
 
@@ -421,6 +427,16 @@ class FewShotDataset(torch.utils.data.Dataset):
                 #     cached_features_file,
                 #     time.time() - start,
                 # )
+
+        if hasattr(args, "load_from"):
+            self.support_examples = self.support_examples[:20]
+            self.query_examples = self.query_examples[:5]
+        if args.task_name == "mnli":
+            reduce_factor = 3
+            reduced_length = len(self.support_examples) // reduce_factor
+            self.support_examples = self.support_examples[:reduced_length]
+            reduced_length = len(self.query_examples) // reduce_factor
+            self.query_examples = self.query_examples[:reduced_length]
 
         # For filtering in using demonstrations, load pre-calculated embeddings
         if self.use_demo and args.demo_filter:

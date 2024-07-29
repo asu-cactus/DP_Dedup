@@ -76,7 +76,7 @@ def load_models_info(model_args) -> list[dict]:
 
 def set_model_args(model_args, model, model_storage):
     untouched_weight_count = 0
-    for weight in model_storage["untouch_weights"].values():
+    for weight in model_storage["untouched_weights"].values():
         untouched_weight_count += weight.size
     model_args.untouched_weights = untouched_weight_count
     print(f"Number of untouched weights: {untouched_weight_count}")
@@ -92,20 +92,26 @@ def compute_compression_ratio(
     remaining_blocks: int,
     block_size: int,
     untouched_weights: int,
-    n_original_weights: int,
-    n_models: int,
+    total_original_weights: int,
 ) -> float:
-    n_before = remaining_blocks * block_size + untouched_weights * n_models
-    n_after = n_original_weights * n_models
-    return n_before / n_after
-    # if n_models == 1:
-    #     return (remaining_blocks * block_size + untouched_weights) / n_original_weights
+    n_after = remaining_blocks * block_size + untouched_weights
+    return n_after / total_original_weights
 
-    # return (
-    #     remaining_blocks * block_size
-    #     + untouched_weights * n_models
-    #     + n_original_weights
-    # ) / (n_original_weights * (n_models + 1))
+
+def merge_base_model_storage(base_storage, new_base_storage):
+    if base_storage["blocks"] is None:
+        return {
+            "blocks": new_base_storage["blocks"],
+            "untouched_weights": [new_base_storage["untouched_weights"]],
+        }
+    base_blocks = base_storage["blocks"]
+    new_blocks = new_base_storage["blocks"]
+    blocks = np.concatenate([base_blocks, new_blocks], axis=0)
+    return {
+        "blocks": blocks,
+        "untouched_weights": base_storage["untouched_weights"]
+        + [new_base_storage["untouched_weights"]],
+    }
 
 
 def merge_model_storage(base_model_storage, curr_model_storage):
@@ -116,9 +122,9 @@ def merge_model_storage(base_model_storage, curr_model_storage):
     return {
         "blocks": blocks,
         "model_range": model_range,
-        "untouch_weights": [
-            base_model_storage["untouch_weights"],
-            curr_model_storage["untouch_weights"],
+        "untouched_weights": [
+            base_model_storage["untouched_weights"],
+            curr_model_storage["untouched_weights"],
         ],
     }
 
@@ -129,7 +135,7 @@ def collect_storage(model_storage, curr_model_storage, model_constitution):
     This function assumes that the current model has the same architecture as the base model.
     model_storage is a dictionary with the following keys:
     - blocks: np.array, shape: (n_blocks, block_size)
-    - untouch_weights: list of untouch weights
+    - untouched_weights: list of untouch weights
     - model_constitution: list of model constitution
     """
     n_base_blocks = len(model_constitution)
@@ -149,8 +155,8 @@ def collect_storage(model_storage, curr_model_storage, model_constitution):
     new_block_storage = curr_model_storage["blocks"][new_block_indices, :]
     model_storage["blocks"] = np.concatenate([blocks, new_block_storage], axis=0)
 
-    # Collect untouch_weights
-    model_storage["untouch_weights"].append(curr_model_storage["untouch_weights"])
+    # Collect untouched_weights
+    model_storage["untouched_weights"].append(curr_model_storage["untouched_weights"])
 
     return model_storage
 
@@ -186,7 +192,6 @@ def load_model(model_info, model_args):
     if model_args.task_type.startswith("text"):
         from text_task_utils.models import RobertaForPromptFinetuning
         from text_task_utils.evaluate import evaluate as eval_fn
-        from text_task_utils.train import train as train_fn
         from utils.text_model_sensitivity import get_block_sensitivity as sensitivity_fn
 
         model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])
@@ -197,7 +202,6 @@ def load_model(model_info, model_args):
         elif model_info["task_name"] == "CelebA":
             num_classes = 40
         from vision_task_utils.evaluate import evaluate as eval_fn
-        from vision_task_utils.train import train as train_fn
         from utils.vision_model_sensitivity import (
             get_block_sensitivity as sensitivity_fn,
         )
@@ -215,7 +219,6 @@ def load_model(model_info, model_args):
     elif model_args.task_type == "recommendation":
         from recommendation_task_utils.evaluate import load_model
         from recommendation_task_utils.evaluate import evaluate as eval_fn
-        from recommendation_task_utils.train import train as train_fn
         from utils.recommender_sensitivity import (
             get_block_sensitivity as sensitivity_fn,
         )
@@ -224,14 +227,14 @@ def load_model(model_info, model_args):
     else:
         raise ValueError(f"Invalid task name: {model_args.task_type}")
 
-    return model, eval_fn, train_fn, sensitivity_fn
+    return model, eval_fn, sensitivity_fn
 
 
 def save_model_storage(model_storage, save_path):
     np.savez(
         save_path,
         blocks=model_storage["blocks"],
-        untouched_weights=model_storage["untouch_weights"],
+        untouched_weights=model_storage["untouched_weights"],
     )
 
 

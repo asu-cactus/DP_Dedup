@@ -51,6 +51,10 @@ class ModelArguments:
         default=False,
         metadata={"help": "Whether to save the combined storage"},
     )
+    n_base_models: int = field(
+        default=1,
+        metadata={"help": "Number of base models"},
+    )
     # For text task
     model_name_or_path: Optional[str] = field(
         default="",
@@ -310,12 +314,6 @@ class DynamicTrainingArguments(TrainingArguments):
         metadata={"help": "Output directory"},
     )
 
-    # For fine-tuning during deduplication
-    do_finetune: bool = field(
-        default=False,
-        metadata={"help": "Whether to fine-tune the model during deduplication"},
-    )
-
     # For batch deduplication (used in every_n.py) and MCTS
     every_n: int = field(
         default=10,
@@ -474,10 +472,9 @@ def parse_args():
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     if model_args.task_type.startswith("text_"):
-        data_args.task_name = (
-            "qnli" if not model_args.inter_data_mode == "qnli_sst2" else "sst-2"
-        )
         model_args.block_size = 589824
+        if model_args.task_type.endswith("mnli"):
+            training_args.enforce_fairness = False
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":

@@ -29,7 +29,7 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
     # # DP-trained models have large variance that depend on the amount of noise added.
     # # We normalize weights to have unit variance and will demonormalize during reconstruction.
     # Start blocking
-    untouch_weights = {}
+    untouched_weights = {}
     blocks = []
 
     # layer_ids, layer_names = [], []
@@ -45,7 +45,7 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
 
         # No deduplicating 1-d vectors (mostly bias)
         if params.squeeze().dim() == 1 or params.numel() < block_size:
-            untouch_weights[name] = params.numpy()
+            untouched_weights[name] = params.numpy()
             continue
 
         # Block 2-d matrix
@@ -89,7 +89,7 @@ def block_model_1d(block_size, model_or_paramdict, skip_embeds=False):
 
     model_storage = {
         "blocks": np.concatenate(blocks, axis=0),
-        "untouch_weights": untouch_weights,  # list of numpy array
+        "untouched_weights": untouched_weights,  # list of numpy array
         # "search_range": search_range,  # numpy array of shape (n_all_blocks, 2)
     }
 
@@ -114,7 +114,7 @@ def get_blocks(
     # search_range = None
 
     blocks = []
-    untouch_weights = {}
+    untouched_weights = {}
     model_range = [0]
 
     # Load blocks from blocks_path
@@ -127,8 +127,8 @@ def get_blocks(
         model_range.append(model_range[-1] + model_storage["blocks"].shape[0])
 
         # Merge bias for all models
-        for jth_weight, weight in model_storage["untouch_weights"].items():
-            untouch_weights[f"{ith_model}_{jth_weight}"] = weight
+        for jth_weight, weight in model_storage["untouched_weights"].items():
+            untouched_weights[f"{ith_model}_{jth_weight}"] = weight
 
         # if ith_model == 1:
         #     search_range = model_storage["search_range"]
@@ -139,7 +139,7 @@ def get_blocks(
     return {
         "blocks": blocks,  #  numpy array, shape: (n_all_blocks, block_size)
         "model_range": np.array(model_range),  #  numpy array of type int
-        "untouch_weights": untouch_weights,  # dict: {f"{ith_model}_{jth_weight}": bias}
+        "untouched_weights": untouched_weights,  # dict: {f"{ith_model}_{jth_weight}": bias}
     }
     # # Save blocks, biases, scale_factors to blocks_path
     # np.savez(
@@ -158,16 +158,16 @@ def get_blocks(
     # return model_storage
 
 
-def reconstruct_weight(model_storage, model, model_id, model_constitution: list[int]):
+def reconstruct_weight(model_storage, model, model_constitution: list[int]):
     """Reconstruct a model weights from a given model storage object."""
-    model_start_point = model_storage["model_range"][model_id]
+    model_start_point = model_storage["model_range"][1]
 
     reconstruct_weight_helper(
         model,
         model_storage["blocks"],
         model_start_point,
         model_constitution,
-        untouched_weights=model_storage["untouch_weights"][model_id],
+        untouched_weights=model_storage["untouched_weights"][-1],
     )
 
 

@@ -360,7 +360,7 @@ def evaluate(
     # Reconstruct the parameters using the model constitution
     if model_constitution:
         if blocks is None:
-            reconstruct_weight(model_storage, model, model_id, model_constitution)
+            reconstruct_weight(model_storage, model, model_constitution)
         else:
             reconstruct_weight_helper(model, blocks, 0, model_constitution)
 

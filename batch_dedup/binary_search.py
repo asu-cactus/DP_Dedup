@@ -8,12 +8,12 @@ from utils.common import (
     load_models_info,
     load_model,
     merge_model_storage,
+    merge_base_model_storage,
     separate_blocks,
     compute_compression_ratio,
     set_model_args,
     save_model_storage,
     collect_storage,
-    longest_increasing_subsequence,
     set_val_epsilon,
 )
 from utils.quantization import quant_and_dequant_model
@@ -26,41 +26,59 @@ def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
 
-    base_model = load_model(models_info[0], model_args)[0]
-    # Block model
-    if model_args.quantize and model_args.prune:
-        raise ValueError(
-            "Current implementation doesn't support quantization and pruning at the same time"
-        )
-    if model_args.quantize:
-        deq_model, quant_data, _ = quant_and_dequant_model(base_model)
-        base_model_storage = block_model_1d(model_args.block_size, deq_model)
-    elif model_args.prune:
-        p_model = prune_model(base_model)
-        base_model_storage = block_model_1d(model_args.block_size, p_model)
-    else:
-        base_model_storage = block_model_1d(model_args.block_size, base_model)
+    blockss_from_base, accs, n_new_blockss = [], [], []
+    n_evalss, n_failss, crs = [], [], []
 
-    n_base_blocks = base_model_storage["blocks"].shape[0]
-    total_model_storage = {
-        "blocks": base_model_storage["blocks"],
-        "untouch_weights": [base_model_storage["untouch_weights"]],
-        "model_constitution": [np.arange(n_base_blocks)],
-    }
+    n_base_blocks = 0
+    total_untouched_weights, total_original_weights = 0, 0
+    base_model_storage = {"blocks": None, "untouched_weights": None}
+    for i in range(model_args.n_base_models):
+        base_model = load_model(models_info[i], model_args)[0]
+
+        # Block model
+        if model_args.quantize:
+            deq_model, quant_data, _ = quant_and_dequant_model(base_model)
+            base_storage = block_model_1d(model_args.block_size, deq_model)
+        elif model_args.prune:
+            p_model = prune_model(base_model)
+            base_storage = block_model_1d(model_args.block_size, p_model)
+        else:
+            base_storage = block_model_1d(model_args.block_size, base_model)
+
+        n_blocks = base_storage["blocks"].shape[0]
+        n_base_blocks += n_blocks
+        base_model_storage = merge_base_model_storage(base_model_storage, base_storage)
+
+        set_model_args(model_args, base_model, base_storage)
+        total_untouched_weights += model_args.untouched_weights
+        total_original_weights += model_args.n_original_weights
+
+        blockss_from_base.append(set())
+        accs.append(models_info[i]["original_acc"])
+        n_new_blockss.append(n_blocks)
+        n_evalss.append(0)
+        n_failss.append(0)
+        crs.append(1.0)
+
+    if model_args.save_combined_storage:
+        total_model_storage = {
+            "blocks": base_storage["blocks"],
+            "untouch_weights": [base_storage["untouch_weights"]],
+            "model_constitution": [np.arange(n_blocks)],
+        }
 
     # Deduplicate blocks for each model
-    blockss_from_base = [set()]
-    accs = [models_info[0]["original_acc"]]
-    n_new_blockss = [n_base_blocks]
-    n_evalss, n_failss, crs = [0], [0], [1.0]
-
-    acc = models_info[0]["original_acc"] - models_info[0]["acc_drop_threshold"]
-    for model_info in models_info[1:]:
+    acc = accs[-1]
+    for model_info in models_info[model_args.n_base_models :]:
         print(f"Model info: {model_info}")
         set_val_epsilon(training_args, model_info["budget"], models_info[0]["budget"])
-        model, eval_fn, train_fn, sensitivity_fn = load_model(model_info, model_args)
+        model, eval_fn, sensitivity_fn = load_model(model_info, model_args)
         curr_model_storage = block_model_1d(model_args.block_size, model)
+
         set_model_args(model_args, model, curr_model_storage)
+        total_untouched_weights += model_args.untouched_weights
+        total_original_weights += model_args.n_original_weights
+
         if model_args.quantize:
             save_path = model_info["model_path"].replace(".pt", "_wo_quant.npz")
             save_model_storage(curr_model_storage, save_path)
@@ -130,9 +148,7 @@ def run():
             training_args,
             model_storage,
             model_info,
-            1,
             eval_fn,
-            train_fn,
             sensitivity_fn,
         )
 
@@ -147,7 +163,6 @@ def run():
             model_args.block_size,
             model_args.untouched_weights,
             model_args.n_original_weights,
-            1,
         )
         global n_evals
         print(f"Current model {n_new_blocks=}, {cr=}, {acc=}, {n_fails=}, {n_evals=}")
@@ -185,39 +200,32 @@ def run():
         n_failss = n_failss[1:]
         crs = crs[1:]
 
-    if training_args.enforce_fairness:
-        lis_index = longest_increasing_subsequence(accs)
-    else:
-        lis_index = [i for i in range(len(accs))]
     # Accuracies
-    lis_acc = [round(accs[i], 4) for i in lis_index]
     acc_drops = [
         model_info["original_acc"] - acc for acc, model_info in zip(accs, models_info)
     ]
-    max_acc_drop = max([acc_drops[i] for i in lis_index])
+    max_acc_drop = max(acc_drops)
     # Total new blocks
-    total_new_blocks = sum([n_new_blockss[i] for i in lis_index])
+    total_new_blocks = sum(n_new_blockss)
     # Number of models
-    n_models = len(lis_index)
+    n_models = len(models_info)
     # Blocks from base model
-    blockss_from_base = [blockss_from_base[i] for i in lis_index]
     blockss_from_base = set.union(*blockss_from_base)
     if model_args.dummy_base_model >= 0:
         total_new_blocks += len(blockss_from_base)
     # Compression ratios
-    crs = [round(crs[i], 4) for i in lis_index]
+    crs = [round(cr, 4) for cr in crs]
 
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
-        model_args.untouched_weights,
-        model_args.n_original_weights,
-        n_models,
+        total_untouched_weights,
+        total_original_weights,
     )
+
     print(f"{n_models=} | {total_new_blocks=} | {cr=} | {max_acc_drop=}")
-    print(f"Longest increasing subsequence indices: {lis_index}")
     print(f"Compression ratios: {crs}")
-    print(f"Accuracies: {lis_acc}")
+    print(f"Accuracies: {accs}")
     print(f"Number of evaluations: {n_evalss}")
     print(f"Number of fails: {n_failss}")
     print(f"All blocks from base: {blockss_from_base}")
@@ -240,9 +248,7 @@ def deduplicate_blocks(
     training_args,
     model_storage,
     model_info,
-    model_id,
     eval_fn,
-    train_fn,
     sensitivity_fn,
     distance_metric="l1",
 ):
@@ -250,8 +256,8 @@ def deduplicate_blocks(
     acc_threshold = model_info["acc_threshold"]
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
-    model_range_start = model_storage["model_range"][model_id]
-    model_range_end = model_storage["model_range"][model_id + 1]
+    model_range_start = model_storage["model_range"][1]
+    model_range_end = model_storage["model_range"][2]
     candidate_range = model_range_end
 
     # Get initial model constitution
@@ -321,7 +327,6 @@ def deduplicate_blocks(
         acc_threshold,
         dedup_indices,
         eval_fn,
-        train_fn,
         training_args.max_fails,
     )
 
@@ -364,7 +369,6 @@ def deduplicate_blocks(
         model_info,
         temp_constitution,
         model_storage,
-        model_id,
     )
 
     if acc > acc_threshold:
@@ -393,7 +397,6 @@ def recursive_deduplicate(
     acc_threshold,
     dedup_indices,
     eval_fn,
-    train_fn,
     remain_fails,
 ):
 
@@ -471,18 +474,8 @@ def recursive_deduplicate(
         dedup_indices |= tobe_dedup_indices
         model_constitution = temp_constitution
         success = True
-        if training_args.do_finetune:
-            train_fn(
-                data_args,
-                model_args,
-                training_args,
-                model_info,
-                temp_constitution,
-                model_storage,
-                1,
-            )
-        else:
-            remain_fails -= 1
+    else:
+        remain_fails -= 1
 
     print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")
@@ -501,7 +494,6 @@ def recursive_deduplicate(
             acc_threshold,
             dedup_indices,
             eval_fn,
-            train_fn,
             remain_fails,
         )
 
@@ -519,7 +511,6 @@ def recursive_deduplicate(
             acc_threshold,
             dedup_indices,
             eval_fn,
-            train_fn,
             remain_fails,
         )
 

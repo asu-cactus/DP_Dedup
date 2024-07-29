@@ -27,6 +27,10 @@ def load_models_info(model_args) -> list[dict]:
         model_info_path = "models/text_mnli.json"
     elif model_args.task_type == "text_mnli_sst2":
         model_info_path = "models/text_mnli_sst2.json"
+    elif model_args.task_type == "text_sst2_mnli":
+        model_info_path = "models/text_sst2_mnli.json"
+    elif model_args.task_type == "text_qnli_mnli":
+        model_info_path = "models/text_qnli_mnli.json"
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"

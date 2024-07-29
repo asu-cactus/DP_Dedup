@@ -1,0 +1,42 @@
+{
+    "0": {
+        "model_path": "../models/base-sst-2-eps0.3/",
+        "task_name": "sst-2",
+        "acc_drop_threshold": 0,
+        "original_acc": 0.9002,
+        "budget": 0.3,
+        "allowed_budget": 0.3
+    },
+    "1": {
+        "model_path": "../models/base-mnli-eps0.4/",
+        "task_name": "mnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7294,
+        "budget": 0.4,
+        "allowed_budget": 0.6
+    },
+    "3": {
+        "model_path": "../models/base-mnli-eps0.8/",
+        "task_name": "mnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7435,
+        "budget": 0.8,
+        "allowed_budget": 1.0
+    },
+    "5": {
+        "model_path": "../models/base-mnli-eps1.6/",
+        "task_name": "mnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7490,
+        "budget": 1.6,
+        "allowed_budget": 1.8
+    },
+    "6": {
+        "model_path": "../models/base-mnli-eps2.0/",
+        "task_name": "mnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7175,
+        "budget": 2.0,
+        "allowed_budget": 2.2
+    }
+}

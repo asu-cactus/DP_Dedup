@@ -1,11 +1,11 @@
 {
     "0": {
-        "model_path": "../models/base-sst-2-eps0.2/",
+        "model_path": "../models/base-sst-2-eps0.3/",
         "task_name": "sst-2",
         "acc_drop_threshold": 0.0,
         "original_acc": 0.8700,
-        "budget": 0.2,
-        "allowed_budget": 0.2
+        "budget": 0.3,
+        "allowed_budget": 0.3
     },
     "1": {
         "model_path": "../models/base-qnli-eps2/",

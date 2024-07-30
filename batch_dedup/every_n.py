@@ -229,12 +229,6 @@ def deduplicate_blocks(
     # Number of evaluations
     n_evals = 0
 
-    if not hasattr(data_args, "noise") and training_args.extra_val_eps >= 0:
-        scale = 2 / (data_args.val_size * training_args.val_epsilon1)
-        data_args.noise = np.random.laplace(loc=0, scale=scale)
-        print(f"Noise to threshold: {data_args.noise}")
-        acc_threshold += data_args.noise
-
     # for i, sens, measure in zip(interate_seq, ordered_sensitivity, measures):
     for i in interate_seq:
         curr_iter += 1
@@ -285,6 +279,12 @@ def deduplicate_blocks(
             n_evals += 1
 
             if training_args.extra_val_eps >= 0:
+                if not hasattr(data_args, "noise"):
+                    scale = 2 / (data_args.val_size * training_args.val_epsilon1)
+                    data_args.noise = np.random.laplace(loc=0, scale=scale)
+                    print(f"Noise to threshold: {data_args.noise}")
+                    acc_threshold += data_args.noise
+
                 scale = (
                     4
                     * training_args.max_fails

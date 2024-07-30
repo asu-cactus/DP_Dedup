@@ -13,9 +13,11 @@ def load_models_info(model_args) -> list[dict]:
     If model_ids is not specified, load all models. Otherwise, load the specified models.
     """
     if model_args.task_type == "text_qnli":
-        if model_args.dummy_base_model >= 0:
-            model_info_path = "models/text_dummy.json"
-        elif model_args.big_batch:
+        if (
+            model_args.dummy_base_model >= 0
+            or model_args.big_batch
+            or model_args.in_group_n_base
+        ):
             model_info_path = "models/text_10models.json"
         elif model_args.inter_data_mode == "qnli_sst2":
             model_info_path = "models/text_qnli_sst2.json"
@@ -69,6 +71,11 @@ def load_models_info(model_args) -> list[dict]:
     if model_args.dummy_base_model >= 0:
         model_ids = [model_args.dummy_base_model, 4, 5, 6, 7, 8]
         models_info = [models_info[i] for i in model_ids]
+    if model_args.in_group_n_base > 0:
+        assert model_args.n_base_models <= 4
+        n_models = model_args.n_base_models + 4
+        models_info = models_info[:8]
+        models_info = models_info[-n_models:]
     for info in models_info:
         print(info)
     return models_info

@@ -33,7 +33,7 @@ class ModelArguments:
     )
     big_batch: bool = field(
         default=False,
-        metadata={"help": "Whether to use a big batch of 20, otherwise 5 models"},
+        metadata={"help": "Whether to use a big group (greater than 5)"},
     )
     dummy_base_model: int = field(
         default=-1,
@@ -54,6 +54,10 @@ class ModelArguments:
     n_base_models: int = field(
         default=1,
         metadata={"help": "Number of base models"},
+    )
+    in_group_n_base: bool = field(
+        default=False,
+        metadata={"help": "Special in-group n base model experiment"},
     )
     # For text task
     model_name_or_path: Optional[str] = field(
@@ -350,7 +354,7 @@ class DynamicTrainingArguments(TrainingArguments):
         default=-1, metadata={"help": "Epsilon for SVT"}
     )
     max_fails: Optional[int] = field(
-        default=4, metadata={"help": "Maximum number of fails for SVT"}
+        default=3, metadata={"help": "Maximum number of fails for SVT"}
     )
 
     # For MCTS

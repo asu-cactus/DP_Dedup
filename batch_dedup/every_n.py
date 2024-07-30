@@ -57,7 +57,13 @@ def run():
 
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
         # The following line guarantees the fairness rule
-        set_acc = model_info["original_acc"] - model_info["acc_drop_threshold"]
+        acc_drop_threshold = (
+            model_info["acc_drop_threshold"] - 0.005
+            if training_args.extra_val_eps >= 0
+            and model_args.task_type.startswith("vision")
+            else model_info["acc_drop_threshold"]
+        )
+        set_acc = model_info["original_acc"] - acc_drop_threshold
         if training_args.enforce_fairness:
             model_info["acc_threshold"] = max(set_acc, acc)
         else:

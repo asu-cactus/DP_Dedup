@@ -33,6 +33,6 @@ def sparsify_model_storage(model_storage):
     model_storage["blocks"] = csr_matrix(model_storage["blocks"])
 
     # Sparsify the untouched weights
-    for name, params in model_storage["untouch_weights"].items():
+    for name, params in model_storage["untouched_weights"].items():
         if "conv" in name or "bn" in name or "downsample" in name:
-            model_storage["untouch_weights"][name] = csr_matrix(params.reshape(1, -1))
+            model_storage["untouched_weights"][name] = csr_matrix(params.reshape(1, -1))

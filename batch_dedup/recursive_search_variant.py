@@ -62,7 +62,7 @@ def run():
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
         # The following line guarantees the fairness rule
         acc_drop_threshold = (
-            model_info["acc_drop_threshold"] - 0.005
+            model_info["acc_drop_threshold"] - 0.003
             if training_args.extra_val_eps >= 0
             and model_args.task_type.startswith("vision")
             else model_info["acc_drop_threshold"]

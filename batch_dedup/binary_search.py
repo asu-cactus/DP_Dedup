@@ -63,7 +63,7 @@ def run():
     if model_args.save_combined_storage:
         total_model_storage = {
             "blocks": base_storage["blocks"],
-            "untouch_weights": [base_storage["untouch_weights"]],
+            "untouched_weights": [base_storage["untouched_weights"]],
             "model_constitution": [np.arange(n_blocks)],
         }
 
@@ -88,8 +88,8 @@ def run():
             deq_model_storage = block_model_1d(model_args.block_size, deq_model)
             nblocks = deq_model_storage["blocks"].shape[0]
             deq_model_storage["model_range"] = [0, nblocks - 1]
-            deq_model_storage["untouch_weights"] = [
-                deq_model_storage["untouch_weights"]
+            deq_model_storage["untouched_weights"] = [
+                deq_model_storage["untouched_weights"]
             ]
             eval_fn(
                 data_args,
@@ -104,8 +104,8 @@ def run():
             # Make sure blocks are integers.
             q_model_storage = block_model_1d(model_args.block_size, q_model)
             q_model_storage["blocks"] = q_model_storage["blocks"].astype(np.int8)
-            for name, params in q_model_storage["untouch_weights"].items():
-                q_model_storage["untouch_weights"][name] = params.astype(np.int8)
+            for name, params in q_model_storage["untouched_weights"].items():
+                q_model_storage["untouched_weights"][name] = params.astype(np.int8)
             save_path = model_info["model_path"].replace(".pt", "_w_quant.npz")
             save_model_storage(q_model_storage, save_path)
             curr_model_storage = block_model_1d(model_args.block_size, deq_model)
@@ -118,7 +118,9 @@ def run():
             p_model_storage = block_model_1d(model_args.block_size, p_model)
             nblocks = p_model_storage["blocks"].shape[0]
             p_model_storage["model_range"] = [0, nblocks - 1]
-            p_model_storage["untouch_weights"] = [p_model_storage["untouch_weights"]]
+            p_model_storage["untouched_weights"] = [
+                p_model_storage["untouched_weights"]
+            ]
             eval_fn(
                 data_args,
                 model_args,
@@ -138,7 +140,7 @@ def run():
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
         # The following line guarantees the fairness rule
         acc_drop_threshold = (
-            model_info["acc_drop_threshold"] - 0.005
+            model_info["acc_drop_threshold"] - 0.003
             if training_args.extra_val_eps >= 0
             and model_args.task_type.startswith("vision")
             else model_info["acc_drop_threshold"]

@@ -1,11 +1,11 @@
 {
     "0": {
-        "model_path": "../models/base-qnli-eps1/",
+        "model_path": "../models/base-qnli-eps0.2/",
         "task_name": "qnli",
         "acc_drop_threshold": 0.0,
-        "original_acc": 0.7836,
-        "budget": 1.0,
-        "allowed_budget": 1.0
+        "original_acc": 0.68,
+        "budget": 0.2,
+        "allowed_budget": 0.2
     },
     "1": {
         "model_path": "../models/base-mnli-eps0.4/",

@@ -222,15 +222,6 @@ def load_model(model_info, model_args):
         model = timm.create_model(model_name, num_classes=num_classes)
         model = ModuleValidator.fix(model)
         model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
-
-    elif model_args.task_type == "recommendation":
-        from recommendation_task_utils.evaluate import load_model
-        from recommendation_task_utils.evaluate import evaluate as eval_fn
-        from utils.recommender_sensitivity import (
-            get_block_sensitivity as sensitivity_fn,
-        )
-
-        model = load_model(model_info["model_path"])
     else:
         raise ValueError(f"Invalid task name: {model_args.task_type}")
 

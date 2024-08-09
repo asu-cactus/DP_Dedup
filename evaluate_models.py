@@ -5,15 +5,10 @@ os.environ["WANDB_DISABLED"] = "true"
 from pathlib import Path
 import time
 
-import timm
-from opacus.validators import ModuleValidator
-import torch
-
 from text_task_utils.evaluate import evaluate
 from vision_task_utils.evaluate import evaluate
 from utils.parse_args import parse_args
 from utils.common import load_models_info
-from utils.blocker import block_model_1d
 
 
 def text_task_evaluate():
@@ -28,28 +23,6 @@ def text_task_evaluate():
         acc = evaluate(data_args, model_args, training_args, model_info)
         print(f"Accuracy: {acc}")
         print(f"Time taken: {time.time() - tic}")
-
-
-def vision_task_parameters():
-
-
-    model = timm.create_model("resnet152.tv2_in1k", pretrained=True, num_classes=40)
-    model = ModuleValidator.fix(model)
-    model.load_state_dict(
-        torch.load("../models/in1k_CelebA_eps0.4.pt", map_location="cpu")
-    )
-
-    for name, param in model.named_parameters():
-        print(name, param.size())
-
-    total_number_of_parameters = sum(p.numel() for p in model.parameters())
-    print(f"Total number of parameters: {total_number_of_parameters}")
-    model_storage = block_model_1d(model)
-    untouch_weights = model_storage["untouch_weights"]
-    untouch_weights_counts = 0
-    for weight in untouch_weights.values():
-        untouch_weights_counts += weight.size
-    print(f"Number of untouch weights: {untouch_weights_counts}")
 
 
 def vision_task_evaluation():

@@ -16,7 +16,7 @@
   - [Online serving](#online-serving)
   - [Pruning and quantization](#pruning-and-quantization)
   - [Evaluate original models](#evaluate-original-models)
-  - [All commands for reproduction](#all-commands-for-reproduction)
+  - [Commands for reproduction](#commands-for-reproduction)
 ## System Requirements
 The training of the ViT-large model with a big batch size 50 needs a GPU with memory size 40 GB. 
 Inferencing with a batch size 16 will need about 11 GB GPU memory for ViT-large, 6 GB GPU memory for Roberta-base and 5 GB GPU memory for ResNet152.
@@ -120,5 +120,119 @@ You can run pruning and quantization by setting `--prune True` or `--quantize Tr
 ### Evaluate original models
 To evaluate the original models, you can comment or uncomment the task in `evaluate_models.py` and run `python evaluate_models.py` with the same arguments as described in the dynamic algorithms section.
 
-### All commands for reproduction
-Here are all commands for reproducing the results in our paper.
+### Commands for reproduction
+Here are the commands for reproducing the major results in our paper.
+
+1. Overall effectiveness (Fig. 2)
+To obtain the accuracy of the original models and "retrained" models, you need to first train the models with the listed epsilon values. Next choose a function call in `evaluate_models.py`, and run the model evaluation script:
+```
+python evaluate_models.py --task_type text_qnli
+python evaluate_model.py --task_type vision_vit
+python evaluate_model.py --task_type vision_resnet
+```
+
+To run deduplication using DRD:
+```
+python run_drd.py --task_type text_qnli
+python run_drd.py --task_type text_mnli_sst2
+python run_drd.py --task_type text_mnli
+python run_drd.py --task_type vision_vit
+python run_drd.py --task_type vision_resnet
+```
+To use DRED, just change the file name from `run_drd.py` to `run_dred.py`
+
+2. Overall effectiveness (Fig. 3)
+To run any the combinations of datasets (CIFAR100, CelebA, qnli), workload type (random, round robin), and w/wo deduplication, here is an example to run ResNet on CIFAR100 with deduplication on the random workload:
+```
+python run_online_serving.py --dataset_name CIFAR100 --workload random --load_from memory
+```
+3. Comparison of deduplication algorithms (Tab. 2)
+To run MCTS:
+```
+python run_mcts.py --task_type text_qnli --every_n 20
+python run_mcts.py --task_type text_qnli --every_n 30
+python run_mcts.py --task_type vision_vit --every_n 20
+python run_mcts.py --task_type vision_vit --every_n 30
+python run_mcts.py --task_type vision_resnet --every_n 20
+python run_mcts.py --task_type vision_resnet --every_n 30
+```
+To run GreedyN:
+```
+python run_greedyn.py --task_type text_qnli --every_n 10
+python run_greedyn.py --task_type text_qnli --every_n 20
+python run_greedyn.py --task_type text_qnli --every_n 30
+python run_greedyn.py --task_type text_qnli --every_n 40
+
+python run_greedyn.py --task_type vision_vit --every_n 10
+python run_greedyn.py --task_type vision_vit --every_n 20
+python run_greedyn.py --task_type vision_vit --every_n 30
+python run_greedyn.py --task_type vision_vit --every_n 40
+
+python run_greedyn.py --task_type vision_resnet --every_n 10
+python run_greedyn.py --task_type vision_resnet --every_n 20
+python run_greedyn.py --task_type vision_resnet --every_n 30
+python run_greedyn.py --task_type vision_resnet --every_n 40
+```
+To run dynamic algorithms:
+```
+python run_drd.py --task_type text_qnli
+python run_dred.py --task_type text_qnli
+python run_drd.py --task_type vision_vit
+python run_dred.py --task_type vision_vit
+python run_drd.py --task_type vision_resnet
+python run_dred.py --task_type vision_resnet
+```
+
+4. Comparison of base model selection in different scenarios (Fig. 4)
+Single model (C1):
+```
+python run_drd.py --task_type text_qnli --dummy_base_model 0
+python run_drd.py --task_type text_qnli --dummy_base_model 1
+python run_drd.py --task_type text_qnli --dummy_base_model 2
+python run_drd.py --task_type text_qnli --dummy_base_model 3
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+Single model (C2):
+```
+python run_drd.py --task_type vision_vit --dummy_base_model 0
+python run_drd.py --task_type vision_vit --dummy_base_model 1
+python run_drd.py --task_type vision_vit --dummy_base_model 2
+python run_drd.py --task_type vision_vit --dummy_base_model 3
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+Single model (C3):
+```
+python run_drd.py --task_type vision_resnet --dummy_base_model 0
+python run_drd.py --task_type vision_resnet --dummy_base_model 1
+python run_drd.py --task_type vision_resnet --dummy_base_model 2
+python run_drd.py --task_type vision_resnet --dummy_base_model 3
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+Multiple base models (C4):
+```
+python run_drd.py --task_type text_qnli --in_group_n_base 1
+python run_drd.py --task_type text_qnli --in_group_n_base 2
+python run_drd.py --task_type text_qnli --in_group_n_base 3
+python run_drd.py --task_type text_qnli --in_group_n_base 4
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+Intra-data v.s. Inter-data
+```
+python run_drd.py --task_type text_qnli_mnli.py
+python run_drd.py --task_type text_sst2_mnli.py
+python run_drd.py --task_type text_mnli.py
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+5.  Deduplication using privacy data with SVT
+```
+python run_drd.py --task_type text_qnli --big_batch True --extra_val_eps 0
+python run_drd.py --task_type vision_resnet --big_batch True --extra_val_eps 0
+```
+For DRED, just change `run_drd.py` to `run_dred.py`.
+
+TODO: Note that the overall compression ratio computation can vary in different experiments. The value shown at the end of the output may not be the value in the paper.

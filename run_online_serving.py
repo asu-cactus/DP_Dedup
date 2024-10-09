@@ -235,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--data_root_dir",
         type=str,
-        default="../fast-differential-privacy/examples/text_classification/data/original/",
+        default="data/",
         help="Root directory of the dataset",
     )
     # parser.add_argument(

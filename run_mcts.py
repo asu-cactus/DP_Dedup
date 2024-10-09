@@ -26,10 +26,6 @@ def order_blocks(model_args, training_args, model_info, model_constitution):
         from utils.vision_model_sensitivity import (
             get_block_sensitivity as sensitivity_fn,
         )
-    elif model_args.task_type == "recommendation":
-        from utils.recommender_sensitivity import (
-            get_block_sensitivity as sensitivity_fn,
-        )
     else:
         raise ValueError(f"Invalid task name: {model_args.task_type}")
 

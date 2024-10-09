@@ -81,6 +81,7 @@ def reconstruct_weight(model, blocks, model_constitution, untouched_weights):
         if params.squeeze().dim() == 1 or params.numel() < block_size:
             params.copy_(torch.from_numpy(untouched_weights[name]))
             continue
+
         # Reconstruct weights
         numel = params.numel()
         nblocks_for_params = math.ceil(numel / block_size)
@@ -247,7 +248,7 @@ if __name__ == "__main__":
     if args.dataset_name == "CIFAR100":
         args.n_models = 10
         args.num_classes = 100
-        args.model_name = "vit_base_patch16_224"
+        args.model_name = "vit_large_patch16_224"
     elif args.dataset_name == "CelebA":
         args.n_models = 20
         args.num_classes = 40

@@ -38,7 +38,7 @@ def load_models_info(args):
 
 def load_model_storage(args):
     if args.dataset_name == "CIFAR100":
-        storage_path = f"../models/vision_vit_10models_storage.npz"
+        storage_path = f"../models/vision_vit_20models_storage.npz"
     elif args.dataset_name == "CelebA":
         storage_path = f"../models/vision_resnet_20models_storage.npz"
     elif args.dataset_name == "qnli":
@@ -171,12 +171,11 @@ def inference(args, model_ids):
 def workload_generate(args):
     n_queries = args.n_queries
     n_models = args.n_models
-    assert n_queries % n_models == 0
     if args.workload == "random":
         rng = np.random.default_rng(seed=42)
         model_ids = rng.integers(n_models, size=n_queries)
     else:
-        model_ids = np.tile(np.arange(n_models), n_queries // n_models)
+        model_ids = np.tile(np.arange(n_models), math.ceil(n_queries / n_models))[:n_queries]
     print(f"Workload: {model_ids}")
     return model_ids
 
@@ -246,7 +245,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.dataset_name == "CIFAR100":
-        args.n_models = 10
+        args.n_models = 20
         args.num_classes = 100
         args.model_name = "vit_large_patch16_224"
     elif args.dataset_name == "CelebA":

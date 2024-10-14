@@ -305,7 +305,7 @@ def deduplicate_blocks(
             temp_constitution = model_constitution.copy()
             print(f"acc: {acc:.4f}, dedup success: {acc > acc_threshold}")
             print(f"Model constitution after dedup: {model_constitution}\n")
-            if remain_fails == 0:
+            if training_args.extra_val_eps >= 0 and remain_fails == 0:
                 break
 
     # Deduplicate all-zero sensitivity blocks

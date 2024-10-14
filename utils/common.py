@@ -224,7 +224,6 @@ def load_model(model_info, model_args):
         model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
     else:
         raise ValueError(f"Invalid task name: {model_args.task_type}")
-
     return model, eval_fn, sensitivity_fn
 
 

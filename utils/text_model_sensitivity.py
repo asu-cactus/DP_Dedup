@@ -95,9 +95,14 @@ def get_model_and_dateset(
     training_args: DynamicTrainingArguments,
 ):
     # Add some additional arguments to make it work
-    task_name = data_args.task_name
+    # original_task_name = data_args.task_name
+    # if data_args.task_name == "mnli":
+    #     data_args.task_name = "qnli"
+    # elif data_args.task_name == "qnli":
+    #     data_args.task_name = "sst-2"
+
     data_args.data_dir = (
-        f"{data_args.data_root_dir}/{common.task_name2suffix_name[task_name]}"
+        f"{data_args.data_root_dir}/{common.task_name2suffix_name[data_args.task_name]}"
     )
 
     training_args.local_rank = -1
@@ -107,7 +112,7 @@ def get_model_and_dateset(
         "mnli": "*cls**sent-_0*?*mask*,*+sentl_1**sep+*",
         "qnli": "*cls**sent-_0*?*mask*,*+sentl_1**sep+*",
         "qqp": "*cls**sent-_0**mask*,*+sentl_1**sep+*",
-    }[task_name]
+    }[data_args.task_name]
 
     # Work with some arguments
     if "prompt" in model_args.few_shot_type:
@@ -175,10 +180,7 @@ def get_model_and_dateset(
 
                 data_args.mapping = mapping_list[data_args.mapping_id]
 
-    try:
-        num_labels = num_labels_mapping[data_args.task_name]
-    except KeyError:
-        raise ValueError("Task not found: %s" % (data_args.task_name))
+    num_labels = num_labels_mapping[data_args.task_name]
 
     # Automatically generate template for using demonstrations
     if data_args.auto_demo and model_args.few_shot_type == "prompt-demo":
@@ -351,6 +353,7 @@ def get_model_and_dateset(
     model.data_args = data_args
     model.tokenizer = tokenizer
 
+    # data_args.task_name = original_task_name
     return model, eval_dataset
 
 
@@ -671,6 +674,9 @@ def gradient_sensitity(
 
     if sample_size is None:
         sample_size = len(dataset)
+    else:
+        sample_size = min(sample_size, len(dataset))
+        dataset = dataset[:sample_size]
 
     criterion = nn.CrossEntropyLoss()
     accum_iter = np.ceil(sample_size / batch_size)

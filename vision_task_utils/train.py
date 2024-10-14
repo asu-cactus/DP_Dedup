@@ -25,7 +25,7 @@ def train(
     device = torch.device("cuda")
 
     # Load the dataset
-    trainset = load_vision_dataset(data_args)
+    trainset = load_vision_dataset(data_args.dataset_name)
     trainloader = torch.utils.data.DataLoader(
         trainset, batch_size=training_args.mini_bs, shuffle=True, num_workers=4
     )

@@ -1,11 +1,6 @@
 import pdb
-
-import numpy as np
 import torch
-from torch import nn
 import torch.nn.functional as F
-import torchvision
-import timm
 
 from utils.blocker import block_model_1d
 from utils.parse_args import parse_args
@@ -20,7 +15,8 @@ def get_block_sensitivity(
     data_args.task_name = model_info["task_name"]
     model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
-    dataset = load_vision_dataset(data_args)
+    # dataset = load_vision_dataset("FGVCAircraft")
+    dataset = load_vision_dataset(data_args.dataset_name)
     model = load_model(model_info, model_args)[0]
 
     block_size = model_args.block_size
@@ -29,7 +25,7 @@ def get_block_sensitivity(
     elif measure == "fisher":
         if data_args.dataset_name == "CelebA":
             raise ValueError("Fisher sensitivity is not implemented for CelebA.")
-        blocks = fisher_sensitity(model, dataset, data_args.dataset_name, block_size)
+        blocks = fisher_sensitity(model, dataset, block_size)
     elif measure == "gradient":
         blocks = gradient_sensitity(model, dataset, data_args.dataset_name, block_size)
     else:
@@ -102,6 +98,9 @@ def gradient_sensitity(
 
     if sample_size is None:
         sample_size = len(dataset)
+    else:
+        sample_size = min(sample_size, len(dataset))
+        dataset = dataset[:sample_size]
 
     testloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=False, num_workers=4
@@ -111,9 +110,9 @@ def gradient_sensitity(
         criterion = torch.nn.BCEWithLogitsLoss(reduction="none")
     else:
         criterion = torch.nn.CrossEntropyLoss()
-    accum_iter = sample_size / batch_size
+    # accum_iter = sample_size / batch_size
 
-    for batch_idx, (inputs, targets) in enumerate(testloader):
+    for inputs, targets in testloader:
         try:
             inputs, targets = inputs.cuda(), targets.cuda()
         except:
@@ -124,7 +123,7 @@ def gradient_sensitity(
             loss = criterion(outputs, targets.float()).sum(dim=1).mean()
         else:
             loss = criterion(outputs, targets)
-        loss = loss / accum_iter
+        # loss = loss / accum_iter
         loss.backward()
 
     grads = {}

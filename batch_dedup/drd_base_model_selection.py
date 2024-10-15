@@ -38,8 +38,10 @@ def compute_total_new_blocks(n_new_blockss, n_base, n_original_weights):
 def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
+    if model_args.task_type == "vision_vit":
+        models_info = models_info[:10]
     plan, n_base = get_deduplication_plan_v1(len(models_info))
-    
+
     blockss_from_base, accs, n_new_blockss = [], [], []
     n_evalss, n_failss, crs = [], [], []
 

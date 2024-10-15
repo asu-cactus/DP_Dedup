@@ -42,7 +42,7 @@ def load_models_info(model_args) -> list[dict]:
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
-        elif model_args.big_batch:
+        elif model_args.big_batch or model_args.base_model_selection:
             model_info_path = "models/vision_vit_20models.json"
         elif model_args.dummy_base_model >= 0:
             model_info_path = "models/vision_vit_dummy.json"
@@ -60,7 +60,7 @@ def load_models_info(model_args) -> list[dict]:
             model_info_path = "models/vision_resnet_quantized.json"
         elif model_args.heter:
             model_info_path = "models/vision_resnet_heter.json"
-        elif model_args.big_batch:
+        elif model_args.big_batch or model_args.base_model_selection:
             model_info_path = "models/vision_resnet_20models.json"
         elif model_args.dummy_base_model >= 0:
             model_info_path = "models/vision_resnet_dummy.json"

@@ -1,6 +1,4 @@
 import pdb
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch import nn
@@ -369,6 +367,8 @@ def get_sens_insens_blocks(constitution, start_idx):
 
 
 def make_boxplot(blocks, constitution, model_id, fig_name):
+    import matplotlib.pyplot as plt
+
     assert blocks.shape[0] == len(constitution)
     start_idx = 0 if model_id == 0 else 832
     start_idx += 832 - len(constitution)

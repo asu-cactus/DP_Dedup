@@ -31,7 +31,7 @@ def evaluate(
     )
     data_args.val_size = len(testset)
 
-    model = load_model(model_info, model_args)[0]
+    model = load_model(model_info)[0]
     model.to(device)
 
     # Reconstruct the parameters using the model constitution

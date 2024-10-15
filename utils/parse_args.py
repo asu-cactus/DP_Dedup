@@ -17,7 +17,13 @@ class ModelArguments:
     """
 
     task_type: str = field(
-        metadata={"help": "Task type. Choice: text, vision_vit, vision_resnet"},
+        metadata={
+            "help": "Task type. Check utils.common.py for the list of task types."
+        },
+    )
+    block_size: int = field(
+        default=589824,
+        metadata={"help": "Block size for the model"},
     )
     prune: bool = field(
         default=False,
@@ -475,7 +481,8 @@ def parse_args():
         )
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
-    if model_args.task_type.startswith("text_"):
+    task_type = model_args.task_type
+    if task_type.startswith("text_"):
         model_args.block_size = 589824
         if model_args.task_type.endswith("mnli"):
             training_args.enforce_fairness = False

@@ -13,11 +13,10 @@ def get_block_sensitivity(
 ):
     model_args, data_args, training_args = parse_args()
     data_args.task_name = model_info["task_name"]
-    model_args.model_name_or_path = model_info["model_path"]
     # Get the model and dataset
     # dataset = load_vision_dataset("FGVCAircraft")
     dataset = load_vision_dataset(data_args.dataset_name)
-    model = load_model(model_info, model_args)[0]
+    model = load_model(model_info)[0]
 
     block_size = model_args.block_size
     if measure == "magnitude":

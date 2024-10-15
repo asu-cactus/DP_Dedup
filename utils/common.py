@@ -33,6 +33,11 @@ def load_models_info(model_args) -> list[dict]:
         model_info_path = "models/text_sst2_mnli.json"
     elif model_args.task_type == "text_qnli_mnli":
         model_info_path = "models/text_qnli_mnli.json"
+    elif model_args.task_type == "cifar100_qnli":
+        model_info_path = "models/cifar100_qnli.json"
+    elif model_args.task_type == "cifar100_sst2":
+        model_info_path = "models/cifar100_sst2.json"
+
     elif model_args.task_type == "vision_vit":
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
@@ -195,15 +200,15 @@ def print_params(model):
     pdb.set_trace()
 
 
-def load_model(model_info, model_args):
-    if model_args.task_type.startswith("text"):
+def load_model(model_info):
+    if model_info["task_name"] in ("qnli", "mnli", "sst-2"):
         from text_task_utils.models import RobertaForPromptFinetuning
         from text_task_utils.evaluate import evaluate as eval_fn
         from utils.text_model_sensitivity import get_block_sensitivity as sensitivity_fn
 
         model = RobertaForPromptFinetuning.from_pretrained(model_info["model_path"])
 
-    elif model_args.task_type.startswith("vision"):
+    elif model_info["task_name"] in ("CIFAR100", "CelebA"):
         if model_info["task_name"] == "CIFAR100":
             num_classes = 100
         elif model_info["task_name"] == "CelebA":
@@ -213,7 +218,6 @@ def load_model(model_info, model_args):
             get_block_sensitivity as sensitivity_fn,
         )
 
-        # model = timm.create_model(model_args.model, num_classes=num_classes, pretrained=True)
         model_name = (
             "resnet152.tv2_in1k"
             if "in1k" in model_info["model_path"]
@@ -223,7 +227,7 @@ def load_model(model_info, model_args):
         model = ModuleValidator.fix(model)
         model.load_state_dict(torch.load(model_info["model_path"], map_location="cpu"))
     else:
-        raise ValueError(f"Invalid task name: {model_args.task_type}")
+        raise ValueError(f"Invalid task name: {model_info['task_name']}")
     return model, eval_fn, sensitivity_fn
 
 

@@ -1,0 +1,42 @@
+{
+    "0": {
+        "model_path": "../models/../models/large_CIFAR100_eps1.0.pt",
+        "task_name": "CIFAR100",
+        "acc_drop_threshold": 0.0,
+        "original_acc": 0.8757,
+        "budget": 1.0,
+        "allowed_budget": 1.0
+    },
+    "1": {
+        "model_path": "../models/base-qnli-eps2/",
+        "task_name": "qnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7927,
+        "budget": 2,
+        "allowed_budget": 2
+    },
+    "2": {
+        "model_path": "../models/base-qnli-eps4",
+        "task_name": "qnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.7997,
+        "budget": 4,
+        "allowed_budget": 4
+    },
+    "3": {
+        "model_path": "../models/base-qnli-eps6",
+        "task_name": "qnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.8049,
+        "budget": 6,
+        "allowed_budget": 6
+    },
+    "4": {
+        "model_path": "../models/base-qnli-eps7",
+        "task_name": "qnli",
+        "acc_drop_threshold": 0.015,
+        "original_acc": 0.8148,
+        "budget": 7,
+        "allowed_budget": 7
+    }
+}

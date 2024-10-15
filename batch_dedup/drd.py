@@ -33,7 +33,7 @@ def run():
     total_untouched_weights, total_original_weights = 0, 0
     base_model_storage = {"blocks": None, "untouched_weights": None}
     for i in range(model_args.n_base_models):
-        base_model = load_model(models_info[i], model_args)[0]
+        base_model = load_model(models_info[i])[0]
 
         # Block model
         if model_args.quantize:
@@ -72,7 +72,7 @@ def run():
     for model_info in models_info[model_args.n_base_models :]:
         print(f"Model info: {model_info}")
         set_val_epsilon(training_args, model_info["budget"], models_info[0]["budget"])
-        model, eval_fn, sensitivity_fn = load_model(model_info, model_args)
+        model, eval_fn, sensitivity_fn = load_model(model_info)
         curr_model_storage = block_model_1d(model_args.block_size, model)
 
         set_model_args(model_args, model, curr_model_storage)

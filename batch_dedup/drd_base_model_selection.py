@@ -29,9 +29,9 @@ def get_deduplication_plan_v1(total_models):
     return plan, n_base
 
 
-def compute_total_new_blocks(n_new_blockss, n_base, n_original_weights):
+def compute_total_new_blocks(n_new_blockss, n_base, n_base_blocks):
     total_new_blocks = sum(n_new_blockss)
-    total_new_blocks += n_base * n_original_weights
+    total_new_blocks += n_base * n_base_blocks
     return total_new_blocks
 
 
@@ -56,7 +56,7 @@ def run():
         base_storage = block_model_1d(model_args.block_size, base_model)
 
         n_blocks = base_storage["blocks"].shape[0]
-        n_base_blocks += n_blocks
+        n_base_blocks = n_blocks
         base_model_storage = merge_base_model_storage(base_model_storage, base_storage)
 
         # set_model_args(model_args, base_model, base_storage)
@@ -121,9 +121,7 @@ def run():
     ]
     max_acc_drop = max(acc_drops)
     # Total new blocks
-    total_new_blocks = compute_total_new_blocks(
-        n_new_blockss, n_base, model_args.n_original_weights
-    )
+    total_new_blocks = compute_total_new_blocks(n_new_blockss, n_base, n_base_blocks)
     # Number of models
     n_models = len(models_info)
     # Blocks from base model

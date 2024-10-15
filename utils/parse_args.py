@@ -65,6 +65,10 @@ class ModelArguments:
         default=False,
         metadata={"help": "Special in-group n base model experiment"},
     )
+    base_model_selection: bool = field(
+        default=False,
+        metadata={"help": "Whether to select base models"},
+    )
     # For text task
     model_name_or_path: Optional[str] = field(
         default="",

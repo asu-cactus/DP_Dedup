@@ -17,6 +17,7 @@ def load_models_info(model_args) -> list[dict]:
             model_args.dummy_base_model >= 0
             or model_args.big_batch
             or model_args.in_group_n_base
+            or model_args.base_model_selection
         ):
             model_info_path = "models/text_10models.json"
         elif model_args.inter_data_mode == "qnli_sst2":

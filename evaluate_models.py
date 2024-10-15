@@ -6,7 +6,8 @@ from pathlib import Path
 import time
 
 from text_task_utils.evaluate import evaluate
-from vision_task_utils.evaluate import evaluate
+
+# from vision_task_utils.evaluate import evaluate
 from utils.parse_args import parse_args
 from utils.common import load_models_info
 

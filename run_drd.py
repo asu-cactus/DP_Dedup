@@ -6,6 +6,8 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from batch_dedup.drd import run
 
+# from batch_dedup.drd_base_model_selection import run
+
 print("Running drd")
 
 run()

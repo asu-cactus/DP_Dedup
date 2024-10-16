@@ -282,6 +282,7 @@ def run():
     print(f"Validation time: {validation_time}")
     print(f"Sensitivity measure time: {sensitivity_measure_time}")
     print(f"Ordering time: {ordering_time}")
+    print(f"Indexing time: {indexing_time}")
     print(f"Overall time: {overall_time}")
 
 

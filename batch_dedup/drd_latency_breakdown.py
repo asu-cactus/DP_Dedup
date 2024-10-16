@@ -1,5 +1,5 @@
 import pdb
-import math
+from copy import deepcopy
 from time import time
 import numpy as np
 
@@ -13,81 +13,157 @@ from utils.common import (
     separate_blocks,
     compute_compression_ratio,
     set_model_args,
+    save_model_storage,
+    collect_storage,
     set_val_epsilon,
 )
+from utils.quantization import quant_and_dequant_model
+from utils.pruning import prune_model, sparsify_model_storage
 
 n_evals = 0
 
-
-def get_deduplication_plan_v1(total_models):
-    plan = []
-    mid = total_models // 2 - 1
-    for i in range(mid - 1, 0, -2):
-        plan.append((i - 1, i))
-    for i in range(mid + 1, total_models):
-        plan.append((mid, i))
-    n_target = len(set([t for _, t in plan]))
-    n_base = total_models - n_target
-    return plan, n_base
+model_loading_time = 0.0
+model_blocking_time = 0.0
+model_merging_time = 0.0
+validation_time = 0.0
+sensitivity_measure_time = 0.0
+ordering_time = 0.0
+overall_time = 0.0
 
 
-def get_deduplication_plan_v2(total_models):
-    plan = []
-    mid = total_models // 2 - 1
+def run():
 
-    for i in range(mid + 1, total_models):
-        plan.append((mid, i))
-    for i in range(mid, 0, -1):
-        plan.append((i - 1, i))
-
-    n_base = 1
-    return plan, n_base
-
-
-def compute_total_new_blocks(n_new_blockss, n_base, n_base_blocks):
-    total_new_blocks = sum(n_new_blockss)
-    total_new_blocks += n_base * n_base_blocks
-    return total_new_blocks
-
-
-def run(plan_version="v2"):
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
-    if model_args.task_type == "vision_vit":
-        models_info = models_info[:10]
-    if plan_version == "v1":
-        plan, n_base = get_deduplication_plan_v1(len(models_info))
-    else:
-        plan, n_base = get_deduplication_plan_v2(len(models_info))
 
     blockss_from_base, accs, n_new_blockss = [], [], []
     n_evalss, n_failss, crs = [], [], []
 
     n_base_blocks = 0
-    total_untouched_weights = 0
-    total_sens_compute_time = 0
-    used_blocks = set()
-    for i, (base_model_idx, target_model_idx) in enumerate(plan):
-        base_model = load_model(models_info[base_model_idx])[0]
-        base_storage = block_model_1d(model_args.block_size, base_model)
-        n_blocks = base_storage["blocks"].shape[0]
-        n_base_blocks = n_blocks
-        base_model_storage = {"blocks": None, "untouched_weights": None}
-        base_model_storage = merge_base_model_storage(base_model_storage, base_storage)
+    total_untouched_weights, total_original_weights = 0, 0
+    base_model_storage = {"blocks": None, "untouched_weights": None}
 
-        # for model_info in models_info[model_args.n_base_models :]:
-        base_model_info = models_info[base_model_idx]
-        print(f"Base model info: {base_model_info}")
-        model_info = models_info[target_model_idx]
+    time_overall_start = time()
+    for i in range(model_args.n_base_models):
+        time_model_loading_start = time()
+        base_model = load_model(models_info[i])[0]
+        model_loading_time += time() - time_model_loading_start
+
+        # Block model
+        time_model_blocking_start = time()
+        if model_args.quantize:
+            deq_model, quant_data, _ = quant_and_dequant_model(base_model)
+            base_storage = block_model_1d(model_args.block_size, deq_model)
+        elif model_args.prune:
+            p_model = prune_model(base_model)
+            base_storage = block_model_1d(model_args.block_size, p_model)
+        else:
+            base_storage = block_model_1d(model_args.block_size, base_model)
+        model_blocking_time += time() - time_model_blocking_start
+
+        time_model_merging_start = time()
+        n_blocks = base_storage["blocks"].shape[0]
+        n_base_blocks += n_blocks
+        base_model_storage = merge_base_model_storage(base_model_storage, base_storage)
+        model_merging_time += time() - time_model_merging_start
+
+        set_model_args(model_args, base_model, base_storage)
+        total_untouched_weights += model_args.untouched_weights
+        total_original_weights += model_args.n_original_weights
+
+        blockss_from_base.append(set())
+        accs.append(models_info[i]["original_acc"])
+        n_new_blockss.append(n_blocks)
+        n_evalss.append(0)
+        n_failss.append(0)
+        crs.append(1.0)
+
+    if model_args.save_combined_storage:
+        total_model_storage = {
+            "blocks": base_storage["blocks"],
+            "untouched_weights": [base_storage["untouched_weights"]],
+            "model_constitution": [np.arange(n_blocks)],
+        }
+
+    # Deduplicate blocks for each model
+    acc = accs[-1]
+    for model_info in models_info[model_args.n_base_models :]:
         print(f"Model info: {model_info}")
         set_val_epsilon(training_args, model_info["budget"], models_info[0]["budget"])
+        time_model_loading_start = time()
         model, eval_fn, sensitivity_fn = load_model(model_info)
+        model_loading_time += time() - time_model_loading_start
+
+        time_model_blocking_start = time()
         curr_model_storage = block_model_1d(model_args.block_size, model)
+        model_blocking_time += time() - time_model_blocking_start
 
         set_model_args(model_args, model, curr_model_storage)
         total_untouched_weights += model_args.untouched_weights
+        total_original_weights += model_args.n_original_weights
 
+        if model_args.quantize:
+            save_path = model_info["model_path"].replace(".pt", "_wo_quant.npz")
+            save_model_storage(curr_model_storage, save_path)
+            deq_model, _, q_model = quant_and_dequant_model(model, quant_data)
+
+            # Measure the accuracy of the model after quantization before deduplication
+            deq_model_storage = block_model_1d(model_args.block_size, deq_model)
+            nblocks = deq_model_storage["blocks"].shape[0]
+            deq_model_storage["model_range"] = [0, nblocks - 1]
+            deq_model_storage["untouched_weights"] = [
+                deq_model_storage["untouched_weights"]
+            ]
+            eval_fn(
+                data_args,
+                model_args,
+                training_args,
+                model_info,
+                list(range(nblocks - 1)),
+                deq_model_storage,
+                0,
+            )
+
+            # Make sure blocks are integers.
+            q_model_storage = block_model_1d(model_args.block_size, q_model)
+            q_model_storage["blocks"] = q_model_storage["blocks"].astype(np.int8)
+            for name, params in q_model_storage["untouched_weights"].items():
+                q_model_storage["untouched_weights"][name] = params.astype(np.int8)
+            save_path = model_info["model_path"].replace(".pt", "_w_quant.npz")
+            save_model_storage(q_model_storage, save_path)
+            curr_model_storage = block_model_1d(model_args.block_size, deq_model)
+        if model_args.prune:
+            save_path = model_info["model_path"].replace(".pt", "_wo_prune.npz")
+            save_model_storage(curr_model_storage, save_path)
+            p_model = prune_model(model)
+
+            # Measure the accuracy of the model after quantization before deduplication
+            p_model_storage = block_model_1d(model_args.block_size, p_model)
+            nblocks = p_model_storage["blocks"].shape[0]
+            p_model_storage["model_range"] = [0, nblocks - 1]
+            p_model_storage["untouched_weights"] = [
+                p_model_storage["untouched_weights"]
+            ]
+            eval_fn(
+                data_args,
+                model_args,
+                training_args,
+                model_info,
+                list(range(nblocks - 1)),
+                p_model_storage,
+                0,
+            )
+
+            curr_model_storage = deepcopy(p_model_storage)
+
+            sparsify_model_storage(p_model_storage)
+            save_path = model_info["model_path"].replace(".pt", "_w_prune.npz")
+            save_model_storage(p_model_storage, save_path)
+
+        time_model_merging_start = time()
         model_storage = merge_model_storage(base_model_storage, curr_model_storage)
+        model_merging_time += time() - time_model_merging_start
+
         # The following line guarantees the fairness rule
         acc_drop_threshold = (
             model_info["acc_drop_threshold"] - 0.003
@@ -95,39 +171,26 @@ def run(plan_version="v2"):
             and model_args.task_type.startswith("vision")
             else model_info["acc_drop_threshold"]
         )
-
-        model_info["acc_threshold"] = model_info["original_acc"] - acc_drop_threshold
-        if plan_version == "v1" or i < math.ceil(len(models_info) / 2):
-            model_constitution, sens_compute_time, acc, n_fails = deduplicate_blocks(
-                model_args,
-                data_args,
-                training_args,
-                model_storage,
-                model_info,
-                eval_fn,
-                sensitivity_fn,
-            )
+        set_acc = model_info["original_acc"] - acc_drop_threshold
+        if training_args.enforce_fairness:
+            model_info["acc_threshold"] = max(set_acc, acc)
         else:
-            model_constitution, sens_compute_time, acc, n_fails = deduplicate_blocks(
-                model_args,
-                data_args,
-                training_args,
-                model_storage,
-                model_info,
-                eval_fn,
-                sensitivity_fn,
-                used_blocks,
-            )
-        n_new_blocks, blocks_from_base = separate_blocks(
-            model_constitution, n_base_blocks
+            model_info["acc_threshold"] = set_acc
+        model_constitution, acc, n_fails = deduplicate_blocks(
+            model_args,
+            data_args,
+            training_args,
+            model_storage,
+            model_info,
+            eval_fn,
+            sensitivity_fn,
+        )
+
+        n_new_blocks, blocks_from_base, blocks_from_current = separate_blocks(
+            model_constitution, n_base_blocks, return_new_blocks=True
         )
         n_new_blockss.append(n_new_blocks)
         blockss_from_base.append(blocks_from_base)
-        total_sens_compute_time += sens_compute_time
-        if i < math.ceil(len(models_info) / 2):
-            used_blocks |= set(blocks_from_base)
-        else:
-            used_blocks = set(blocks_from_base)
 
         cr = compute_compression_ratio(
             n_new_blocks,
@@ -144,26 +207,48 @@ def run(plan_version="v2"):
         crs.append(cr)
         n_evals = 0
 
+        if model_args.quantize:
+            blocks_from_current = list(blocks_from_current)
+            curr_model_storage["blocks"] = model_storage["blocks"][blocks_from_current]
+            save_path = model_info["model_path"].replace(".pt", "_quant_dedup.npz")
+            save_model_storage(curr_model_storage, save_path)
+        if model_args.prune:
+            blocks_from_current = list(blocks_from_current)
+            curr_model_storage["blocks"] = model_storage["blocks"][blocks_from_current]
+            sparsify_model_storage(curr_model_storage)
+            save_path = model_info["model_path"].replace(".pt", "_prune_dedup.npz")
+            save_model_storage(curr_model_storage, save_path)
+        if model_args.save_combined_storage:
+            collect_storage(total_model_storage, curr_model_storage, model_constitution)
+
+    if model_args.save_combined_storage:
+        n_models = len(models_info)
+        save_path = f"../models/{model_args.task_type}_{n_models}models_storage.npz"
+        np.savez(save_path, **total_model_storage)
+
+    if model_args.dummy_base_model >= 0:
+        accs = accs[1:]
+        blockss_from_base = blockss_from_base[1:]
+        n_new_blockss = n_new_blockss[1:]
+        n_evalss = n_evalss[1:]
+        n_failss = n_failss[1:]
+        crs = crs[1:]
+
     # Accuracies
     acc_drops = [
         model_info["original_acc"] - acc for acc, model_info in zip(accs, models_info)
     ]
     max_acc_drop = max(acc_drops)
     # Total new blocks
-    total_new_blocks = compute_total_new_blocks(n_new_blockss, n_base, n_base_blocks)
+    total_new_blocks = sum(n_new_blockss)
     # Number of models
     n_models = len(models_info)
     # Blocks from base model
     blockss_from_base = set.union(*blockss_from_base)
-
+    if model_args.dummy_base_model >= 0:
+        total_new_blocks += len(blockss_from_base)
     # Compression ratios
     crs = [round(cr, 4) for cr in crs]
-
-    total_original_weights = model_args.n_original_weights * n_models
-    print(f"{total_original_weights=}")
-    print(f"{total_new_blocks=}")
-    print(f"{total_untouched_weights=}")
-    print(f"{model_args.block_size=}")
 
     cr = compute_compression_ratio(
         total_new_blocks,
@@ -172,6 +257,8 @@ def run(plan_version="v2"):
         total_original_weights,
     )
 
+    overall_time = time() - time_overall_start
+
     print(f"{n_models=} | {total_new_blocks=} | {cr=} | {max_acc_drop=}")
     print(f"Compression ratios: {crs}")
     print(f"Accuracies: {accs}")
@@ -179,7 +266,14 @@ def run(plan_version="v2"):
     print(f"Number of fails: {n_failss}")
     print(f"All blocks from base: {blockss_from_base}")
     print(f"Number of blocks from base: {len(blockss_from_base)}")
-    print(f"Total sensitivity compute time: {total_sens_compute_time}")
+
+    print(f"Model loading time: {model_loading_time}")
+    print(f"Model blocking time: {model_blocking_time}")
+    print(f"Model merging time: {model_merging_time}")
+    print(f"Validation time: {validation_time}")
+    print(f"Sensitivity measure time: {sensitivity_measure_time}")
+    print(f"Ordering time: {ordering_time}")
+    print(f"Overall time: {overall_time}")
 
 
 def get_used_allzero_indices(
@@ -200,7 +294,6 @@ def deduplicate_blocks(
     model_info,
     eval_fn,
     sensitivity_fn,
-    used_blocks=None,
     distance_metric="l1",
 ):
     # Set parameters
@@ -211,9 +304,6 @@ def deduplicate_blocks(
     model_range_end = model_storage["model_range"][2]
     candidate_range = model_range_end
 
-    if used_blocks is not None:
-        used_blocks = set([b + model_range_start for b in used_blocks])
-
     # Get initial model constitution
     model_constitution = list(range(model_range_start, model_range_end))
 
@@ -223,16 +313,16 @@ def deduplicate_blocks(
     # The order the blocks are iterated through
     interate_seq = np.arange(model_range_start, model_range_end)
 
-    tic = time()
     return_n_embed_blocks = training_args.sensitivity_measure == "wanda"
+
+    time_sensitivity_measure_start = time()
     measures, n_embed_blocks = sensitivity_fn(
         model_info,
         training_args.sensitivity_measure,
         skip_embeds=False,
         return_n_embed_blocks=return_n_embed_blocks,
     )
-    tok = time()
-    sens_compute_time = tok - tic
+    sensitivity_measure_time += time() - time_sensitivity_measure_start
 
     all_zeros = np.all(measures == 0, axis=1)
     non_all_zeros = ~all_zeros
@@ -246,6 +336,7 @@ def deduplicate_blocks(
     print(f"All zero sensitivity blocks : {allzerograd_seq}")
     allzero_indices_set = set(allzerograd_seq)
 
+    time_ordering_start = time()
     if training_args.orderby == "l1_norm":
         block_sens = np.sum(np.abs(measures), axis=1)
     elif training_args.orderby == "l2_norm":
@@ -267,21 +358,16 @@ def deduplicate_blocks(
     else:
         # interate_seq = interate_seq[ordered_indices]
         interate_seq = seq_to_order[ordered_indices]
-    # Remove used blocks
-    if used_blocks is not None:
-        interate_seq = [i for i in interate_seq if i not in used_blocks]
-    else:
-        interate_seq = interate_seq.tolist()
+    ordering_time += time() - time_ordering_start
+
     # Deduplicate non-all-zero sensitivity blocks
-    right_seq = []
     dedup_indices = set()
 
-    model_constitution, remain_fails = recursive_deduplicate(
+    n_dedup, model_constitution, remain_fails = recursive_deduplicate(
         model_args,
         data_args,
         training_args,
         interate_seq,
-        right_seq,
         model_storage,
         candidate_blocks,
         model_constitution,
@@ -299,9 +385,6 @@ def deduplicate_blocks(
     )
     print(f"Used all-zero indices: {list(used_allzero_indices)}")
     allzerograd_seq = [i for i in allzerograd_seq if i not in used_allzero_indices]
-    # Remove used blocks
-    if used_blocks is not None:
-        allzerograd_seq = [i for i in allzerograd_seq if i not in used_blocks]
 
     # Start deduplication
     temp_constitution = model_constitution.copy()
@@ -309,6 +392,8 @@ def deduplicate_blocks(
         block_2b_replaced = model_storage["blocks"][i]
         diff = candidate_blocks - block_2b_replaced
         # Sort by some metrics: l1, l2, cosine
+
+        time_ordering_start = time()
         if distance_metric == "l1":
             dist = np.sum(np.abs(diff), axis=1)
         elif distance_metric == "l2":
@@ -319,6 +404,7 @@ def deduplicate_blocks(
             )
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
+        ordering_time += time() - time_ordering_start
 
         for j in dist.argsort():
             if j in allzero_indices_set or j in dedup_indices:
@@ -327,6 +413,8 @@ def deduplicate_blocks(
             print(f"{model_info['model_path']} block {i} -> {j}")
             temp_constitution = [j if c == i else c for c in temp_constitution]
             break
+
+    time_validation_start = time()
     acc = eval_fn(
         data_args,
         model_args,
@@ -335,18 +423,19 @@ def deduplicate_blocks(
         temp_constitution,
         model_storage,
     )
+    validation_time += time() - time_validation_start
 
     if acc > acc_threshold:
         model_constitution = temp_constitution
 
-    if len(allzerograd_seq) == 0:
+    if len(allzerograd_seq) > 0:
         print(
             f"{model_info['model_path']} dedup zero sensitivity blocks acc: {acc:.4f}"
         )
         print(f"Model constitution after dedup: {model_constitution}")
 
     n_fails = training_args.max_fails - remain_fails
-    return model_constitution, sens_compute_time, acc, n_fails
+    return model_constitution, acc, n_fails
 
 
 def recursive_deduplicate(
@@ -354,7 +443,6 @@ def recursive_deduplicate(
     data_args,
     training_args,
     interate_seq,
-    right_seq,
     model_storage,
     candidate_blocks,
     model_constitution,
@@ -365,15 +453,16 @@ def recursive_deduplicate(
     eval_fn,
     remain_fails,
 ):
+
     # Base case
     if len(interate_seq) < training_args.min_dedup_len or (
         training_args.extra_val_eps >= 0 and remain_fails == 0
     ):
-        return model_constitution, remain_fails
+        return 0, model_constitution, remain_fails
 
     mid_point = len(interate_seq) // 2
     left_seq = interate_seq[:mid_point]
-    right_seq = interate_seq[mid_point:] + right_seq
+    right_seq = interate_seq[mid_point:]
 
     # Initialize variables
     #  Deduplicated indices
@@ -386,6 +475,7 @@ def recursive_deduplicate(
         block_2b_replaced = model_storage["blocks"][i]
         diff = candidate_blocks - block_2b_replaced
         # Sort by some metrics: l1, l2, cosine
+        time_ordering_start = time()
         if distance_metric == "l1":
             dist = np.sum(np.abs(diff), axis=1)
         elif distance_metric == "l2":
@@ -404,12 +494,13 @@ def recursive_deduplicate(
                 continue
             j = idx
             break
-
-        print(f"{model_info['model_path']} block {i} -> {j}")
+        ordering_time += time() - time_ordering_start
 
         # Replace the current block with the most similar block
+        print(f"{model_info['model_path']} block {i} -> {j}")
         temp_constitution = [j if c == i else c for c in temp_constitution]
 
+    time_validation_start = time()
     acc = eval_fn(
         data_args,
         model_args,
@@ -419,6 +510,7 @@ def recursive_deduplicate(
         model_storage,
         1,
     )
+    validation_time += time() - time_validation_start
     global n_evals
     n_evals += 1
 
@@ -449,29 +541,28 @@ def recursive_deduplicate(
     print(f"acc: {acc:.4f}, dedup success: {success}")
     print(f"Model constitution after dedup: {model_constitution}")
 
-    if success:
-        model_constitution, remain_fails = recursive_deduplicate(
-            model_args,
-            data_args,
-            training_args,
-            right_seq,
-            [],
-            model_storage,
-            candidate_blocks,
-            model_constitution,
-            model_info,
-            distance_metric,
-            acc_threshold,
-            dedup_indices,
-            eval_fn,
-            remain_fails,
-        )
-    else:
-        model_constitution, remain_fails = recursive_deduplicate(
+    if not success:
+        n_dedup_left, model_constitution, remain_fails = recursive_deduplicate(
             model_args,
             data_args,
             training_args,
             left_seq,
+            model_storage,
+            candidate_blocks,
+            model_constitution,
+            model_info,
+            distance_metric,
+            acc_threshold,
+            dedup_indices,
+            eval_fn,
+            remain_fails,
+        )
+
+    if success or n_dedup_left > len(left_seq) // 2:
+        n_dedup_right, model_constitution, remain_fails = recursive_deduplicate(
+            model_args,
+            data_args,
+            training_args,
             right_seq,
             model_storage,
             candidate_blocks,
@@ -483,4 +574,10 @@ def recursive_deduplicate(
             eval_fn,
             remain_fails,
         )
-    return model_constitution, remain_fails
+
+        if success:
+            return len(left_seq) + n_dedup_right, model_constitution, remain_fails
+        else:
+            return n_dedup_left + n_dedup_right, model_constitution, remain_fails
+    else:
+        return n_dedup_left, model_constitution, remain_fails

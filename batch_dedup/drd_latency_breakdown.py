@@ -28,10 +28,19 @@ model_merging_time = 0.0
 validation_time = 0.0
 sensitivity_measure_time = 0.0
 ordering_time = 0.0
+indexing_time = 0.0
 overall_time = 0.0
 
 
 def run():
+
+    global model_loading_time
+    global model_blocking_time
+    global model_merging_time
+    global validation_time
+    global sensitivity_measure_time
+    global ordering_time
+    global overall_time
 
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
@@ -296,6 +305,11 @@ def deduplicate_blocks(
     sensitivity_fn,
     distance_metric="l1",
 ):
+    global ordering_time
+    global validation_time
+    global sensitivity_measure_time
+    global indexing_time
+
     # Set parameters
     acc_threshold = model_info["acc_threshold"]
     data_args.task_name = model_info["task_name"]
@@ -308,7 +322,9 @@ def deduplicate_blocks(
     model_constitution = list(range(model_range_start, model_range_end))
 
     # Prepare the candidate blocks
+    time_indexing_start = time()
     candidate_blocks = model_storage["blocks"][:candidate_range]
+    indexing_time += time() - time_indexing_start
 
     # The order the blocks are iterated through
     interate_seq = np.arange(model_range_start, model_range_end)
@@ -389,11 +405,13 @@ def deduplicate_blocks(
     # Start deduplication
     temp_constitution = model_constitution.copy()
     for i in allzerograd_seq:
+        time_indexing_start = time()
         block_2b_replaced = model_storage["blocks"][i]
-        diff = candidate_blocks - block_2b_replaced
+        indexing_time += time() - time_indexing_start
         # Sort by some metrics: l1, l2, cosine
 
         time_ordering_start = time()
+        diff = candidate_blocks - block_2b_replaced
         if distance_metric == "l1":
             dist = np.sum(np.abs(diff), axis=1)
         elif distance_metric == "l2":
@@ -404,7 +422,6 @@ def deduplicate_blocks(
             )
         else:
             raise ValueError(f"Invalid distance metric: {distance_metric}")
-        ordering_time += time() - time_ordering_start
 
         for j in dist.argsort():
             if j in allzero_indices_set or j in dedup_indices:
@@ -413,6 +430,7 @@ def deduplicate_blocks(
             print(f"{model_info['model_path']} block {i} -> {j}")
             temp_constitution = [j if c == i else c for c in temp_constitution]
             break
+        ordering_time += time() - time_ordering_start
 
     time_validation_start = time()
     acc = eval_fn(
@@ -453,6 +471,8 @@ def recursive_deduplicate(
     eval_fn,
     remain_fails,
 ):
+    global ordering_time
+    global validation_time
 
     # Base case
     if len(interate_seq) < training_args.min_dedup_len or (

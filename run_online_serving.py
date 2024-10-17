@@ -38,7 +38,7 @@ def load_models_info(args):
 
 def load_model_storage(args):
     if args.dataset_name == "CIFAR100":
-        storage_path = f"../models/vision_vit_20models_storage.npz"
+        storage_path = f"../models/vision_vit_10models_storage.npz"
     elif args.dataset_name == "CelebA":
         storage_path = f"../models/vision_resnet_20models_storage.npz"
     elif args.dataset_name == "qnli":
@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.dataset_name == "CIFAR100":
-        args.n_models = 20
+        args.n_models = 10
         args.num_classes = 100
         args.model_name = "vit_large_patch16_224"
     elif args.dataset_name == "CelebA":

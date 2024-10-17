@@ -109,7 +109,7 @@ def inference(args, model_ids):
         model = load_text_model(args, testset, config)
     else:
         model = load_vision_model(args)
-        testset = load_vision_dataset(args)
+        testset = load_vision_dataset(args.dataset_name)
 
     collate_fn = default_data_collator if args.dataset_name == "qnli" else None
     testloader = torch.utils.data.DataLoader(
@@ -175,7 +175,9 @@ def workload_generate(args):
         rng = np.random.default_rng(seed=42)
         model_ids = rng.integers(n_models, size=n_queries)
     else:
-        model_ids = np.tile(np.arange(n_models), math.ceil(n_queries / n_models))[:n_queries]
+        model_ids = np.tile(np.arange(n_models), math.ceil(n_queries / n_models))[
+            :n_queries
+        ]
     print(f"Workload: {model_ids}")
     return model_ids
 

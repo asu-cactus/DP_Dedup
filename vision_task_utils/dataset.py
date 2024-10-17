@@ -89,5 +89,7 @@ def load_vision_dataset(dataset_name):
         testset = getattr(torchvision.datasets, dataset_name)(
             root="data/", split="val", transform=transformation
         )
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
     print(f"Test size: {len(testset)}")
     return testset

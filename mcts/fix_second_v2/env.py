@@ -13,7 +13,6 @@ class State:
         model_info,
         models_storage,
         eval_fn,
-        train_fn,
     ) -> None:
         self.model_constitution = model_constitution
         self.avail_actions = avail_actions
@@ -23,7 +22,6 @@ class State:
         self.model_info = model_info
         self.models_storage = models_storage
         self.eval_fn = eval_fn
-        self.train_fn = train_fn
 
     def __str__(self) -> str:
         str_repr = ",".join([str(block) for block in self.model_constitution])
@@ -102,7 +100,6 @@ class State:
             self.model_info,
             self.models_storage,
             self.eval_fn,
-            self.train_fn,
         )
 
         return next_s, return_value

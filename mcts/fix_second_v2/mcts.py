@@ -16,7 +16,6 @@ class MCTS:
         model_info,
         models_storage,
         eval_fn,
-        train_fn,
         action_space,
     ):
         self.model_args = model_args
@@ -25,7 +24,6 @@ class MCTS:
         self.model_info = model_info
         self.models_storage = models_storage
         self.eval_fn = eval_fn
-        self.train_fn = train_fn
         self.action_space = action_space
 
         self.Qsa = defaultdict(int)  # stores Q values for s,a (as defined in the paper)
@@ -49,7 +47,6 @@ class MCTS:
             self.model_info,
             self.models_storage,
             self.eval_fn,
-            self.train_fn,
         )
 
     # def _default_policy(self, legal_actions: list[Action]):

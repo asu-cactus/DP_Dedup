@@ -2,7 +2,7 @@ import os
 import pdb
 
 os.environ["WANDB_DISABLED"] = "true"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["TQDM_DISABLE"] = "1"
 
 import numpy as np
@@ -20,7 +20,7 @@ from mcts.fix_second_v2.mcts import MCTS
 
 
 def order_blocks(model_args, training_args, model_info, model_constitution):
-    if model_args.task_type == "text":
+    if "text" in model_args.task_type:
         from utils.text_model_sensitivity import get_block_sensitivity as sensitivity_fn
     elif "vision" in model_args.task_type:
         from utils.vision_model_sensitivity import (
@@ -94,7 +94,7 @@ def run():
     # else:
     #     raise ValueError(f"Unknown task type: {task_type}")
 
-    base_model, eval_fn, train_fn, _ = load_model(models_info[0], model_args)
+    base_model, eval_fn, _ = load_model(models_info[0])
     base_model_storage = block_model_1d(model_args.block_size, base_model)
     # n_base_blocks = base_model_storage["blocks"].shape[0]
     set_model_args(model_args, base_model, base_model_storage)
@@ -103,7 +103,7 @@ def run():
     # blockss_from_base = set()
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")
-        model = load_model(model_info, model_args)[0]
+        model = load_model(model_info)[0]
         curr_model_storage = block_model_1d(model_args.block_size, model)
         models_storage = merge_model_storage(base_model_storage, curr_model_storage)
         action_space = create_action_space(
@@ -116,7 +116,6 @@ def run():
             model_info,
             models_storage,
             eval_fn,
-            train_fn,
             action_space,
         )
 
@@ -138,16 +137,23 @@ def run():
                 break
 
         n_new_blocks = original_num_blocks - round(max_v * original_num_blocks)
-        print(f"{model_info['model_path']} Number of new blocks: {n_new_blocks}\n")
+        cr = compute_compression_ratio(
+            n_new_blocks,
+            model_args.block_size,
+            model_args.untouched_weights,
+            model_args.n_original_weights,
+        )
+        print(
+            f"{model_info['model_path']} Number of new blocks: {n_new_blocks} | {cr=}\n"
+        )
         total_new_blocks += n_new_blocks
 
     n_models = len(models_info)
     cr = compute_compression_ratio(
         total_new_blocks,
         model_args.block_size,
-        model_args.untouched_weights,
-        model_args.n_original_weights,
-        n_models,
+        model_args.untouched_weights * n_models,
+        model_args.n_original_weights * n_models,
     )
     print(f"\n{total_new_blocks=} | {cr=}")
 

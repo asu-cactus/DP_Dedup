@@ -99,7 +99,7 @@ def run():
     # n_base_blocks = base_model_storage["blocks"].shape[0]
     set_model_args(model_args, base_model, base_model_storage)
 
-    total_new_blocks = 0
+    total_new_blocks = base_model_storage["blocks"].shape[0]
     # blockss_from_base = set()
     for model_info in models_info[1:]:
         print(f"Model info: {model_info}")

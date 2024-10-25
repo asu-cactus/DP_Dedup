@@ -17,6 +17,7 @@
   - [Pruning and quantization](#pruning-and-quantization)
   - [Evaluate original models](#evaluate-original-models)
   - [Commands for reproduction](#commands-for-reproduction)
+- [Baseline - Dedup](#baseline---dedup)
 ## System Requirements
 The training of the ViT-large model with a big batch size 50 needs a GPU with memory size 40 GB. 
 Inferencing with a batch size 16 will need about 11 GB GPU memory for ViT-large, 6 GB GPU memory for Roberta-base and 5 GB GPU memory for ResNet152.
@@ -236,3 +237,7 @@ python run_drd.py --task_type vision_resnet --big_batch True --extra_val_eps 0
 For DRED, just change `run_drd.py` to `run_dred.py`.
 
 TODO: Note that the overall compression ratio computation can vary in different experiments. The value shown at the end of the output may not be the value in the paper.
+
+## Baseline - Dedup
+The code for baseline Dedup can be found from this link: 
+https://github.com/asu-cactus/Model_Deduplication_Train_Text_Classification_Model/tree/dp_dedup

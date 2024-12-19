@@ -9,7 +9,11 @@ from vision_task_utils.dataset import load_vision_dataset
 
 
 def get_block_sensitivity(
-    model_info, measure, skip_embeds=False, return_n_embed_blocks=False
+    model_info,
+    measure,
+    skip_embeds=False,
+    return_n_embed_blocks=False,
+    return_model=True,
 ):
     model_args, data_args, training_args = parse_args()
     data_args.task_name = model_info["task_name"]
@@ -29,6 +33,9 @@ def get_block_sensitivity(
         blocks = gradient_sensitity(model, dataset, data_args.dataset_name, block_size)
     else:
         raise ValueError(f"Unknown sensitivity measure: {measure}")
+
+    if return_model:
+        return blocks, block_model_1d(block_size, model)["blocks"]
 
     return blocks, None
 
@@ -91,6 +98,7 @@ def gradient_sensitity(
     block_size,
     batch_size=16,
     sample_size=None,
+    do_block=True,
 ):
     model.eval()
     model.cuda()
@@ -129,6 +137,9 @@ def gradient_sensitity(
     for name, param in model.named_parameters():
         if param.requires_grad:
             grads[name] = param.grad
+
+    if not do_block:
+        return grads
 
     # Block the Gradients corresponding to each parameter
     blocks = block_model_1d(block_size, grads)["blocks"]

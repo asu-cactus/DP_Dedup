@@ -486,10 +486,12 @@ def parse_args():
     )
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
     task_type = model_args.task_type
-    if task_type.startswith("text_"):
+    if task_type.startswith("text_") or task_type in ("cifar100_qnli", "cifar100_sst2"):
         model_args.block_size = 589824
+        # model_args.block_size = 49152
         if model_args.task_type.endswith("mnli"):
             training_args.enforce_fairness = False
+        data_args.dataset_name = "CIFAR100"
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":

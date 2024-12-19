@@ -493,7 +493,11 @@ def get_sensitivity(
 
 
 def get_block_sensitivity(
-    model_info, measure, skip_embeds=True, return_n_embed_blocks=False
+    model_info,
+    measure,
+    skip_embeds=True,
+    return_n_embed_blocks=False,
+    return_model=True,
 ):
     model_args, data_args, training_args = parse_args()
     data_args.task_name = model_info["task_name"]
@@ -526,6 +530,8 @@ def get_block_sensitivity(
         embed_blocks = block_model_1d(block_size, embed_params)["blocks"]
         n_embed_blocks = embed_blocks.shape[0]
         return blocks, n_embed_blocks
+    if return_model:
+        return blocks, block_model_1d(block_size, model)["blocks"]
     return blocks, None
 
 
@@ -668,6 +674,7 @@ def gradient_sensitity(
     skip_embeds=False,
     sample_size=None,
     correct_only=True,
+    do_block=True,
 ):
     model.eval()
     model.cuda()
@@ -723,6 +730,9 @@ def gradient_sensitity(
     for name, param in model.named_parameters():
         if param.requires_grad:
             grads[name] = param.grad
+
+    if not do_block:
+        return grads
 
     # Block the Fisher information corresponding to each parameter
     blocks = block_model_1d(block_size, grads, skip_embeds)["blocks"]

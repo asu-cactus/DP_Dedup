@@ -51,7 +51,12 @@ def run():
     acc = accs[-1]
     for model_info in models_info[model_args.n_base_models :]:
         print(f"Model info: {model_info}")
-        set_val_epsilon(training_args, model_info["budget"], models_info[0]["budget"])
+        set_val_epsilon(
+            training_args,
+            model_info["budget"],
+            models_info[0]["budget"],
+            model_info["task_name"] == models_info[0]["task_name"],
+        )
         model, eval_fn, sensitivity_fn = load_model(model_info)
         curr_model_storage = block_model_1d(model_args.block_size, model)
 

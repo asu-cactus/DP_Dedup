@@ -43,7 +43,7 @@ def load_models_info(model_args) -> list[dict]:
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
         elif model_args.big_batch or model_args.base_model_selection:
-            model_info_path = "models/vision_vit_20models.json"
+            model_info_path = "models/vision_vit_10models.json"
         elif model_args.dummy_base_model >= 0:
             model_info_path = "models/vision_vit_dummy.json"
         elif model_args.inter_data_mode == "cifar100_celeba":

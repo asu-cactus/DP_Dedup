@@ -355,7 +355,7 @@ class DynamicTrainingArguments(TrainingArguments):
 
     # For fairnes
     enforce_fairness: bool = field(
-        default=True,
+        default=False,
         metadata={"help": "Enforce fairness during deduplication"},
     )
 
@@ -488,8 +488,8 @@ def parse_args():
     task_type = model_args.task_type
     if task_type.startswith("text_"):
         model_args.block_size = 589824
-        if model_args.task_type.endswith("mnli"):
-            training_args.enforce_fairness = False
+        # if model_args.task_type.endswith("mnli"):
+        #     training_args.enforce_fairness = False
         # model_args.untouched_weights = 569433
         # model_args.n_original_weights = 163300953
     elif model_args.task_type == "vision_vit":

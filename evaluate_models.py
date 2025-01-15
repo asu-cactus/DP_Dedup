@@ -4,15 +4,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ["WANDB_DISABLED"] = "true"
 from pathlib import Path
 import time
-
-from text_task_utils.evaluate import evaluate
-
-# from vision_task_utils.evaluate import evaluate
 from utils.parse_args import parse_args
 from utils.common import load_models_info
 
 
 def text_task_evaluate():
+    from text_task_utils.evaluate import evaluate
+
     model_args, data_args, training_args = parse_args()
     Path(training_args.output_dir).mkdir(parents=True, exist_ok=True)
     models_info = load_models_info(model_args)
@@ -27,6 +25,8 @@ def text_task_evaluate():
 
 
 def vision_task_evaluation():
+    from vision_task_utils.evaluate import evaluate
+
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
     # model_paths = [info["model_path"] for info in models_info]

@@ -43,7 +43,7 @@ def load_models_info(model_args) -> list[dict]:
         if model_args.heter:
             model_info_path = "models/vision_vit_heter.json"
         elif model_args.big_batch or model_args.base_model_selection:
-            model_info_path = "models/vision_vit_20models.json"
+            model_info_path = "models/vision_vit_10models.json"
         elif model_args.dummy_base_model >= 0:
             model_info_path = "models/vision_vit_dummy.json"
         elif model_args.inter_data_mode == "cifar100_celeba":
@@ -275,9 +275,13 @@ def longest_increasing_subsequence(arr):
     return lis_index
 
 
-def set_val_epsilon(training_args, curr_budget, base_budget):
+def set_val_epsilon(training_args, curr_budget, base_budget, is_same_data):
     if training_args.extra_val_eps >= 0:
         eps_ratio = (2 * training_args.max_fails) ** (2 / 3)
-        val_eps = curr_budget + base_budget + training_args.extra_val_eps
+        if is_same_data:
+            val_eps = curr_budget + base_budget
+        else:
+            val_eps = max(curr_budget, base_budget)
+        val_eps += training_args.extra_val_eps
         training_args.val_epsilon1 = val_eps / (1 + eps_ratio)
         training_args.val_epsilon2 = training_args.val_epsilon1 * eps_ratio

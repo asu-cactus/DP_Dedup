@@ -87,7 +87,12 @@ def run(plan_version="v2"):
         print(f"Base model info: {base_model_info}")
         model_info = models_info[target_model_idx]
         print(f"Model info: {model_info}")
-        set_val_epsilon(training_args, model_info["budget"], base_model_info["budget"])
+        set_val_epsilon(
+            training_args,
+            model_info["budget"],
+            base_model_info["budget"],
+            base_model_info["task_name"] == model_info["task_name"],
+        )
         model, eval_fn, sensitivity_fn = load_model(model_info)
         curr_model_storage = block_model_1d(model_args.block_size, model)
 

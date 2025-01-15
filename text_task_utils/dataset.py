@@ -431,7 +431,7 @@ class FewShotDataset(torch.utils.data.Dataset):
         if hasattr(args, "load_from"):
             self.support_examples = self.support_examples[:20]
             self.query_examples = self.query_examples[:5]
-        if args.task_name == "mnli":
+        elif args.task_name == "mnli":
             reduce_factor = 3
             reduced_length = len(self.support_examples) // reduce_factor
             self.support_examples = self.support_examples[:reduced_length]

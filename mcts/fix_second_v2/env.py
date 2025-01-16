@@ -1,5 +1,5 @@
 from __future__ import annotations
-import pdb
+import numpy as np
 
 
 class State:
@@ -47,6 +47,23 @@ class State:
             model_storage=self.models_storage,
             model_id=1,
         )
+        # For SVT
+        if self.training_args.extra_val_eps >= 0:
+            if not hasattr(self.data_args, "noise"):
+                scale = 2 / (self.data_args.val_size * self.training_args.val_epsilon1)
+                self.data_args.noise = np.random.laplace(loc=0, scale=scale)
+                print(f"Noise to threshold: {self.data_args.noise}")
+                acc_threshold += self.data_args.noise
+
+            scale = (
+                4
+                * self.training_args.max_fails
+                / (self.data_args.val_size * self.training_args.val_epsilon2)
+            )
+            noise = np.random.laplace(loc=0, scale=scale)
+            print(f"Noise to acc: {noise}")
+            acc += noise
+        # Compare accuracy and the threshold
         if acc < acc_threshold:
             print(f"acc: {acc:.4f}, dedup success: False")
             print(f"Model constitution after dedup: {self.model_constitution}")

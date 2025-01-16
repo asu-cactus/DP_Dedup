@@ -2,7 +2,7 @@ import os
 import pdb
 
 os.environ["WANDB_DISABLED"] = "true"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 os.environ["TQDM_DISABLE"] = "1"
 
 import numpy as np
@@ -15,6 +15,7 @@ from utils.common import (
     merge_model_storage,
     compute_compression_ratio,
     set_model_args,
+    set_val_epsilon,
 )
 from mcts.fix_second_v2.mcts import MCTS
 
@@ -102,6 +103,15 @@ def run():
     total_new_blocks = base_model_storage["blocks"].shape[0]
     # blockss_from_base = set()
     for model_info in models_info[1:]:
+        # For SVT
+        training_args.max_fails = 1
+        set_val_epsilon(
+            training_args,
+            model_info["budget"],
+            models_info[0]["budget"],
+            model_info["task_name"] == models_info[0]["task_name"],
+        )
+
         print(f"Model info: {model_info}")
         model = load_model(model_info)[0]
         curr_model_storage = block_model_1d(model_args.block_size, model)

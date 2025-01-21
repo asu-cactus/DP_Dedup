@@ -376,6 +376,13 @@ class DynamicTrainingArguments(TrainingArguments):
         default=0.1,
         metadata={"help": "C-prod for UCT"},
     )
+
+    # For base model selection
+    bms_plan: str = field(
+        default="multi",  # choose from "multi", "cross"
+        metadata={"help": "Base model selection plan"},
+    )
+
     # save_every: int = field(
     #     default=1000,
     #     metadata={"help": "Save MCTS results every n episodes"},

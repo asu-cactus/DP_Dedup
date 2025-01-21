@@ -19,7 +19,7 @@ from utils.common import (
 n_evals = 0
 
 
-def get_deduplication_plan_v1(total_models):
+def get_deduplication_plan_multi(total_models):
     plan = []
     mid = total_models // 2 - 1
     for i in range(mid - 1, 0, -2):
@@ -31,7 +31,7 @@ def get_deduplication_plan_v1(total_models):
     return plan, n_base
 
 
-def get_deduplication_plan_v2(total_models):
+def get_deduplication_plan_cross(total_models):
     plan = []
     mid = total_models // 2 - 1
 
@@ -50,15 +50,16 @@ def compute_total_new_blocks(n_new_blockss, n_base, n_base_blocks):
     return total_new_blocks
 
 
-def run(plan_version="v2"):
+def run():
     model_args, data_args, training_args = parse_args()
     models_info = load_models_info(model_args)
+    bms_plan = training_args.bms_plan
     if model_args.task_type == "vision_vit":
         models_info = models_info[:10]
-    if plan_version == "v1":
-        plan, n_base = get_deduplication_plan_v1(len(models_info))
+    if bms_plan == "multi":
+        plan, n_base = get_deduplication_plan_multi(len(models_info))
     else:
-        plan, n_base = get_deduplication_plan_v2(len(models_info))
+        plan, n_base = get_deduplication_plan_cross(len(models_info))
 
     blockss_from_base, accs, n_new_blockss = [], [], []
     n_evalss, n_failss, crs = [], [], []
@@ -102,7 +103,7 @@ def run(plan_version="v2"):
         )
 
         model_info["acc_threshold"] = model_info["original_acc"] - acc_drop_threshold
-        if plan_version == "v1" or i < math.ceil(len(models_info) / 2):
+        if bms_plan == "multi" or i < math.ceil(len(models_info) / 2):
             model_constitution, sens_compute_time, acc, n_fails = deduplicate_blocks(
                 model_args,
                 data_args,

@@ -24,6 +24,10 @@ def load_models_info(args):
         model_info_path = "models/vision_resnet_20models.json"
     elif args.dataset_name == "qnli":
         model_info_path = "models/text_10models.json"
+    elif args.dataset_name == "mnli":
+        model_info_path = "models/text_mnli.json"
+    elif args.dataset_name == "sst-2":
+        model_info_path = "models/text_mnli_sst2.json"
     else:
         raise ValueError("Unknown dataset or task name")
 
@@ -35,11 +39,15 @@ def load_models_info(args):
 
 def load_model_storage(args):
     if args.dataset_name == "CIFAR100":
-        storage_path = f"../models/vision_vit_10models_storage.npz"
+        storage_path = "../models/vision_vit_10models_storage.npz"
     elif args.dataset_name == "CelebA":
-        storage_path = f"../models/vision_resnet_20models_storage.npz"
+        storage_path = "../models/vision_resnet_20models_storage.npz"
     elif args.dataset_name == "qnli":
-        storage_path = f"../models/text_10models_storage.npz"
+        storage_path = "../models/text_10models_storage.npz"
+    elif args.dataset_name == "mnli":
+        storage_path = "../models/text_mnli_5models_storage.npz"
+    elif args.dataset_name == "sst-2":
+        storage_path = "../models/text_mnli_sst2_6models_storage.npz"
     else:
         raise ValueError("Unknown dataset or task name")
     model_storage = np.load(storage_path, allow_pickle=True)
@@ -101,14 +109,14 @@ def inference(args, model_ids):
 
     # Load model from disk
     models_info = load_models_info(args)
-    if args.dataset_name == "qnli":
+    if args.is_text_task:
         testset, config = load_text_testset(args, models_info[0])
         model = load_text_model(args, testset, config)
     else:
         model = load_vision_model(args)
         testset = load_vision_dataset(args.dataset_name)
 
-    collate_fn = default_data_collator if args.dataset_name == "qnli" else None
+    collate_fn = default_data_collator if args.is_text_task else None
     testloader = torch.utils.data.DataLoader(
         testset,
         batch_size=args.mini_bs,
@@ -125,12 +133,12 @@ def inference(args, model_ids):
         model_storage = load_model_storage(args)
         model_constitution = model_storage["model_constitution"]
         blocks = model_storage["blocks"]
-        untouched_weights = model_storage["untouch_weights"]
+        untouched_weights = model_storage["untouched_weights"]
 
     for model_id in model_ids:
         if args.load_from == "disk":
             model_loading_start = time()
-            if args.dataset_name == "qnli":
+            if args.is_text_task:
                 args.model_name_or_path = models_info[model_id]["model_path"]
                 model = load_text_model(args, testset, config)
             else:
@@ -149,7 +157,7 @@ def inference(args, model_ids):
             if i == n_iter:
                 break
             inference_start = time()
-            if args.dataset_name == "qnli":
+            if args.is_text_task:
                 item.pop("labels")
                 with torch.no_grad():
                     model(**item)
@@ -166,12 +174,13 @@ def inference(args, model_ids):
 
 def workload_generate(args):
     n_queries = args.n_queries
-    n_models = args.n_models
+    high = args.n_models
+    low = args.first_model_id
     if args.workload == "random":
         rng = np.random.default_rng(seed=42)
-        model_ids = rng.integers(n_models, size=n_queries)
+        model_ids = rng.integers(low, high, size=n_queries)
     else:
-        model_ids = np.tile(np.arange(n_models), math.ceil(n_queries / n_models))[
+        model_ids = np.tile(np.arange(low, high), math.ceil(n_queries / (high - low)))[
             :n_queries
         ]
     print(f"Workload: {model_ids}")
@@ -193,7 +202,7 @@ if __name__ == "__main__":
         "--dataset_name",
         required=True,
         type=str,
-        choices=["CIFAR100", "CelebA", "qnli"],
+        choices=["CIFAR100", "CelebA", "qnli", "mnli", "sst-2"],
         help="Dataset name",
     )
     parser.add_argument(
@@ -207,7 +216,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_queries",
         type=int,
-        default=100,
+        default=20,
         help="Number of queries",
     )
 
@@ -229,13 +238,10 @@ if __name__ == "__main__":
         default="data/",
         help="Root directory of the dataset",
     )
-    # parser.add_argument(
-    #     "--gpu",
-    #     action="store_true",
-    #     help="Use GPU for inference",
-    # )
 
     args = parser.parse_args()
+    args.is_text_task = False
+    args.first_model_id = 0
     if args.dataset_name == "CIFAR100":
         args.n_models = 10
         args.num_classes = 100
@@ -244,8 +250,15 @@ if __name__ == "__main__":
         args.n_models = 20
         args.num_classes = 40
         args.model_name = "resnet152.tv2_in1k"
-    elif args.dataset_name == "qnli":
-        args.n_models = 10
+    elif args.dataset_name in ("qnli", "mnli", "sst-2"):
+        args.is_text_task = True
+        if args.dataset_name == "qnli":
+            args.n_models = 10
+        elif args.dataset_name == "mnli":
+            args.n_models = 5
+        else:  # args.dataset_name == "sst-2"
+            args.n_models = 6
+            args.first_model_id = 1
         args.task_name = args.dataset_name
         args.few_shot_type = "prompt-demo"
         args.prompt = False

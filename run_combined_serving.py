@@ -259,7 +259,7 @@ if __name__ == "__main__":
             args.n_models = 10
         elif args.dataset_name == "mnli":
             args.n_models = 5
-        else:
+        else:  # args.dataset_name == "sst-2"
             args.n_models = 6
         args.task_name = args.dataset_name
         args.few_shot_type = "prompt-demo"

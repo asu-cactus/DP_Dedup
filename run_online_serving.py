@@ -216,7 +216,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_queries",
         type=int,
-        default=20,
+        default=100,
         help="Number of queries",
     )
 

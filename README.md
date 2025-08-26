@@ -16,9 +16,10 @@
   - [Online serving](#online-serving)
   - [Pruning and quantization](#pruning-and-quantization)
   - [Evaluate original models](#evaluate-original-models)
-  - [Commands for reproduction](#commands-for-reproduction)
+  - [Commands to run](#commands-to-run)
 - [Baseline - Dedup](#baseline---dedup)
-- [Plotting Results](#plotting-results)
+- [Plotting results](#plotting-results)
+- [Reproducibility Statement](#reproducibility-statement)
 ## System Requirements
 The training of the ViT-large model with a big batch size 50 needs a GPU with memory size 40 GB. 
 Inferencing with a batch size 16 will need about 11 GB GPU memory for ViT-large, 6 GB GPU memory for Roberta-base and 5 GB GPU memory for ResNet152.
@@ -123,7 +124,7 @@ You can run pruning and quantization by setting `--prune True` or `--quantize Tr
 ### Evaluate original models
 To evaluate the original models, you can comment or uncomment the task in `evaluate_models.py` and run `python evaluate_models.py` with the same arguments as described in the dynamic algorithms section.
 
-### Commands for reproduction
+### Commands to run
 Here are the commands for reproducing the major results in our paper.
 
 1. Overall effectiveness (Fig. 2)
@@ -238,16 +239,24 @@ python run_drd.py --task_type vision_resnet --big_batch True --extra_val_eps 0
 ```
 For DRED, just change `run_drd.py` to `run_dred.py`.
 
-TODO: Note that the overall compression ratio computation can vary in different experiments. The value shown at the end of the output may not be the value in the paper.
 
 ## Baseline - Dedup
 The code for baseline Dedup can be found from this link: 
 https://github.com/asu-cactus/Model_Deduplication_Train_Text_Classification_Model/tree/dp_dedup
 
-## Plotting Results
+## Plotting results
 The results are recorded from experiment results and hard-coded into the plotting scripts under `plotting` folder.
 To run the plotting scripts, just run the script without any extra arguments. For example,
 ```
 python plotting/plot_base_model_selection.py
 python plotting/plot_bms_ablation_study.py
 ```
+
+## Reproducibility Statement
+The training process and deduplication process is not fully deterministic so the outputs produced by this script do not full match the results in our research paper. Here are two major factors that cause the non-determinism:
+
+1. The training process is non-deterministic because we used DP-SGD training and didn't enforce deterministic training. To produce similar results, please ensure that models with high privacy budget have better utility. 
+  
+2. In the sensitivity measurement step, some weights have near-zero gradients, which causes unrecognizable difference between some weights, so the order of the sorted blocks based on sensitivity may vary in different runs. 
+   
+Note: the overall compression ratio computation are for the cases of single base model. For the cases of multiple base models, the logic is not implemented in the script, but one can read the number of base models, block size, number of original weights per model, total number of new blocks, and the number of "untouched_weights" (parameters that are smaller than the block size, such as bias terms) to compute the overall compression ratio in the following way: compression_ratio = (original_weight_per_model x num_base_models + block_size x num_new_blocks + num_untouched_weights) / (original_weight_per_model x num_of_all_models)

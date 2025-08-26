@@ -253,10 +253,10 @@ python plotting/plot_bms_ablation_study.py
 ```
 
 ## Reproducibility Statement
-The training process and deduplication process is not fully deterministic so the outputs produced by this script do not full match the results in our research paper. Here are two major factors that cause the non-determinism:
+The training process and deduplication process are not fully deterministic, so the outputs produced by this script may not fully match the results in our research paper. Here are two major factors that cause non-determinism:
 
-1. The training process is non-deterministic because we used DP-SGD training and didn't enforce deterministic training. To produce similar results, please ensure that models with high privacy budget have better utility. 
+1. The training process is non-deterministic because we used DP-SGD training and didn't enforce deterministic training. To produce similar results, please ensure that models with high privacy budgets have better utility. 
   
-2. In the sensitivity measurement step, some weights have near-zero gradients, which causes unrecognizable difference between some weights, so the order of the sorted blocks based on sensitivity may vary in different runs. 
+2. In the sensitivity measurement step, some weights have near-zero gradients, which causes an unrecognizable difference between some weights, so the order of the sorted blocks based on sensitivity may vary in different runs. 
    
-Note: the overall compression ratio computation are for the cases of single base model. For the cases of multiple base models, the logic is not implemented in the script, but one can read the number of base models, block size, number of original weights per model, total number of new blocks, and the number of "untouched_weights" (parameters that are smaller than the block size, such as bias terms) to compute the overall compression ratio in the following way: compression_ratio = (original_weight_per_model x num_base_models + block_size x num_new_blocks + num_untouched_weights) / (original_weight_per_model x num_of_all_models)
+Note: the overall compression ratio computation is for the cases of a single base model. For the cases of multiple base models, the logic is not implemented in the script, but one can read the number of base models, block size, number of original weights per model, total number of new blocks, and the number of "untouched_weights" (parameters that are smaller than the block size, such as bias terms) to compute the overall compression ratio in the following way: compression_ratio = (original_weight_per_model x num_base_models + block_size x num_new_blocks + num_untouched_weights) / (original_weight_per_model x num_of_all_models)

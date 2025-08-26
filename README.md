@@ -18,6 +18,7 @@
   - [Evaluate original models](#evaluate-original-models)
   - [Commands for reproduction](#commands-for-reproduction)
 - [Baseline - Dedup](#baseline---dedup)
+- [Plotting Results](#plotting-results)
 ## System Requirements
 The training of the ViT-large model with a big batch size 50 needs a GPU with memory size 40 GB. 
 Inferencing with a batch size 16 will need about 11 GB GPU memory for ViT-large, 6 GB GPU memory for Roberta-base and 5 GB GPU memory for ResNet152.
@@ -41,6 +42,7 @@ Here are the recommended steps to set up the environment:
 9. Install accelerate: `pip install -U accelerate`
 10. Install pandas: `pip install -U pandas`
 11. Install ml-swissknife: `pip install -U ml-swissknife`.
+12. Install matplotlib: `pip isntall matplotlib`
 
 ### DP_Dedup
 Clone this repository and activate the above `fastdp` environment. 
@@ -241,3 +243,11 @@ TODO: Note that the overall compression ratio computation can vary in different 
 ## Baseline - Dedup
 The code for baseline Dedup can be found from this link: 
 https://github.com/asu-cactus/Model_Deduplication_Train_Text_Classification_Model/tree/dp_dedup
+
+## Plotting Results
+The results are recorded from experiment results and hard-coded into the plotting scripts under `plotting` folder.
+To run the plotting scripts, just run the script without any extra arguments. For example,
+```
+python plotting/plot_base_model_selection.py
+python plotting/plot_bms_ablation_study.py
+```

@@ -1,4 +1,15 @@
-### This is a repository for our research paper **Privacy and Accuracy-Aware Model Deduplication for Emerging Model Infrastructures**. 
+
+# Privacy and Accuracy-Aware Model Deduplication
+
+## Publications
+
+Guan, Hong, Lei Yu, Lixi Zhou, Li Xiong, Kanchan Chowdhury, Lulu Xie, Xusheng Xiao, and Jia Zou. "Privacy and Accuracy-Aware AI/ML Model Deduplication." Proceedings of the ACM on Management of Data 3, no. 3 (2025): 1-28. [Read](https://dl.acm.org/doi/pdf/10.1145/3725340)
+
+Extended Technical Report: [Read](ExtendedTechnicalReport.pdf)
+
+Our Past Related Paper: Zhou, Lixi, Jiaqing Chen, Amitabh Das, Hong Min, Lei Yu, Ming Zhao, and Jia Zou. "Serving deep learning models with deduplication from relational databases." Proceedings of the VLDB Endowment 15, no. 10 (2022): 2230-2243. [Read](https://www.vldb.org/pvldb/vol15/p2230-zou.pdf)
+
+## Repository Structure
 
 - [System Requirements](#system-requirements)
 - [Software Installation](#software-installation)
